@@ -122,7 +122,10 @@ function processCommand(input: string): TerminalLine[] {
       { type: 'output', text: '' },
       { type: 'output', text: 'EXTRAS:' },
       { type: 'output', text: '  Try: whoami, ls, fortune, tree, cowsay, neofetch' },
-      { type: 'output', text: '  More: brew, sl, npm install, uptime, man, :q' },
+      { type: 'output', text: '  More: brew, sl, npm install, uptime, joke, weather' },
+      { type: 'output', text: '' },
+      { type: 'output', text: 'HIDDEN:' },
+      { type: 'output', text: '  There are 50+ commands. Keep exploring.' },
       { type: 'output', text: '' },
     ]
   }
@@ -191,6 +194,19 @@ function processCommand(input: string): TerminalLine[] {
 
   // Easter eggs
   if (command === 'sudo') {
+    if (args.join(' ') === 'rm -rf /') {
+      return [
+        { type: 'output' as const, text: '[sudo] password for gerard: ********' },
+        { type: 'output' as const, text: '' },
+        { type: 'output' as const, text: 'Deleting universe...' },
+        { type: 'output' as const, text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
+        { type: 'output' as const, text: '' },
+        { type: 'error' as const, text: 'Error: Cannot delete self. Philosophical paradox detected.' },
+      ]
+    }
+    if (args[0] === 'make' && args[1] === 'me' && args[2] === 'a' && args[3] === 'sandwich') {
+      return [{ type: 'output' as const, text: 'Okay.' }]
+    }
     return [{ type: 'error', text: 'gerard is not in the sudoers file. This incident will be reported.' }]
   }
 
@@ -291,16 +307,31 @@ function processCommand(input: string): TerminalLine[] {
   }
 
   if (command === 'snake') {
-    return [{ type: 'output', text: 'Snake game coming soon...' }]
+    return [
+      { type: 'output' as const, text: '  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' },
+      { type: 'output' as const, text: '  \u2588                  \u2588' },
+      { type: 'output' as const, text: '  \u2588   \u25CF\u25CF\u25CF\u25CF\u25CF>    \u25CB   \u2588' },
+      { type: 'output' as const, text: '  \u2588                  \u2588' },
+      { type: 'output' as const, text: '  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' },
+      { type: 'output' as const, text: '  Score: 42   High: 42' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: '  You already won. Trust the process.' },
+    ]
   }
 
   if (command === 'matrix') {
-    return [
-      { type: 'output', text: '01001101 01000001 01010100 01010010' },
-      { type: 'output', text: '01001001 01011000 00100000 01000101' },
-      { type: 'output', text: '01000110 01000110 01000101 01000011' },
-      { type: 'output', text: '01010100 00100001' },
-    ]
+    const chars = '\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3\u30B5\u30B7\u30B9\u30BB\u30BD0123456789'
+    const lines: TerminalLine[] = []
+    for (let i = 0; i < 8; i++) {
+      let line = ''
+      for (let j = 0; j < 36; j++) {
+        line += chars[Math.floor(Math.random() * chars.length)]
+      }
+      lines.push({ type: 'output' as const, text: line })
+    }
+    lines.push({ type: 'output' as const, text: '' })
+    lines.push({ type: 'output' as const, text: 'Wake up, Neo...' })
+    return lines
   }
 
   if (command === 'neofetch') {
@@ -397,9 +428,9 @@ function processCommand(input: string): TerminalLine[] {
 
   if (command === 'hexdump') {
     return [
-      { type: 'output' as const, text: '00000000  47 2e 20 53 6f 6c 6f 20  |G. Solo |' },
-      { type: 'output' as const, text: '00000008  69 6e 64 69 65 20 64 65  |indie de|' },
-      { type: 'output' as const, text: '00000010  76 2e                    |v.      |' },
+      { type: 'output' as const, text: '00000000  54 61 73 74 65 20 2b 20  |Taste + |' },
+      { type: 'output' as const, text: '00000008  65 78 65 63 75 74 69 6f  |executio|' },
+      { type: 'output' as const, text: '00000010  6e 2e                    |n.      |' },
     ]
   }
 
@@ -471,6 +502,261 @@ function processCommand(input: string): TerminalLine[] {
       return [{ type: 'error' as const, text: `cat: ${args[0]}: Permission denied` }]
     }
     return [{ type: 'output' as const, text: 'Usage: cat <file>' }]
+  }
+
+  if (command === 'hack') {
+    const target = args[0] || 'mainframe'
+    return [
+      { type: 'output' as const, text: `Connecting to ${target}...` },
+      { type: 'output' as const, text: 'Bypassing firewall............. [OK]' },
+      { type: 'output' as const, text: 'Decrypting SSL handshake....... [OK]' },
+      { type: 'output' as const, text: 'Injecting SQL payload.......... [OK]' },
+      { type: 'output' as const, text: 'Escalating privileges.......... [OK]' },
+      { type: 'output' as const, text: 'Downloading secrets............ [OK]' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'SECRET FILE CONTENTS:' },
+      { type: 'output' as const, text: '"G ships fast and cares about taste."' },
+      { type: 'output' as const, text: '' },
+      { type: 'error' as const, text: 'CONNECTION TERMINATED BY REMOTE HOST' },
+    ]
+  }
+
+  if (command === 'weather') {
+    const temps = [28, 29, 30, 31, 32, 33, 34]
+    const temp = temps[Math.floor(Math.random() * temps.length)]
+    const conditions = ['Humid', 'Very humid', 'Extremely humid', 'Soup']
+    const cond = conditions[Math.floor(Math.random() * conditions.length)]
+    return [
+      { type: 'output' as const, text: '\u2601 Singapore Weather Report' },
+      { type: 'output' as const, text: `  Temperature: ${temp}\u00B0C` },
+      { type: 'output' as const, text: `  Humidity: 94%` },
+      { type: 'output' as const, text: `  Conditions: ${cond}` },
+      { type: 'output' as const, text: `  UV Index: Yes` },
+      { type: 'output' as const, text: '  Forecast: Same as yesterday. And tomorrow.' },
+    ]
+  }
+
+  if (command === 'joke') {
+    const jokes = [
+      ['Why do programmers prefer dark mode?', 'Because light attracts bugs.'],
+      ['A SQL query walks into a bar,', 'walks up to two tables and asks...', '"Can I join you?"'],
+      ['!false', "It's funny because it's true."],
+      ['"Knock knock." "Race condition."', '"Who\'s there?"'],
+      ['How many programmers does it take', 'to change a light bulb?', 'None. That\'s a hardware problem.'],
+      ['There are only 10 types of people:', 'Those who understand binary', 'and those who don\'t.'],
+      ['A programmer\'s wife tells him:', '"Go to the store and buy a gallon of milk.', 'If they have eggs, get a dozen."', 'He comes home with 12 gallons of milk.'],
+      ['What\'s the best thing about', 'UDP jokes?', 'I don\'t care if you get them.'],
+      ['["hip","hip"]', '(hip hip array!)'],
+      ['What\'s a pirate\'s favorite', 'programming language?', 'You\'d think R, but their first', 'love is the C.'],
+    ]
+    const j = jokes[Math.floor(Math.random() * jokes.length)]
+    return j.map(line => ({ type: 'output' as const, text: line }))
+  }
+
+  if (command === 'rickroll') {
+    return [
+      { type: 'output' as const, text: '\u266A Never gonna give you up' },
+      { type: 'output' as const, text: '\u266A Never gonna let you down' },
+      { type: 'output' as const, text: '\u266A Never gonna run around and desert you' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'You just got terminal-rolled.' },
+    ]
+  }
+
+  if (command === 'xyzzy') {
+    return [
+      { type: 'output' as const, text: 'A hollow voice says "Plugh."' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'You are in a dimly lit office.' },
+      { type: 'output' as const, text: 'A CRT monitor hums softly.' },
+      { type: 'output' as const, text: 'Exits: TRUST, CULTURE, UNDERTOW' },
+    ]
+  }
+
+  if (command === 'plugh') {
+    return [
+      { type: 'output' as const, text: 'A hollow voice says "Xyzzy."' },
+      { type: 'output' as const, text: 'You\'re going in circles.' },
+    ]
+  }
+
+  if (command === 'secret' || command === 'secrets') {
+    return [
+      { type: 'output' as const, text: 'Hidden things in this terminal:' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: '  [\u2713] You found the secret command' },
+      { type: 'output' as const, text: '  [ ] Try a classic adventure game word' },
+      { type: 'output' as const, text: '  [ ] There\'s a cheat code for everything' },
+      { type: 'output' as const, text: '  [ ] Click the objects on the desk' },
+      { type: 'output' as const, text: '  [ ] The sticky notes have stories' },
+      { type: 'output' as const, text: '  [ ] Some commands have hidden arguments' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'Curiosity is the only credential.' },
+    ]
+  }
+
+  if (command === 'git' && args[0] === 'log') {
+    return [
+      { type: 'output' as const, text: 'commit a1b2c3d (HEAD -> main)' },
+      { type: 'output' as const, text: '  fix: finally fixed that one bug' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'commit e4f5g6h' },
+      { type: 'output' as const, text: '  fix: the fix for the fix' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'commit i7j8k9l' },
+      { type: 'output' as const, text: '  feat: mass refactor at 3am (what could go wrong)' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'commit m0n1o2p' },
+      { type: 'output' as const, text: '  chore: deleted 2000 lines of "temporary" code' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'commit q3r4s5t' },
+      { type: 'output' as const, text: '  init: first commit. this will be simple.' },
+    ]
+  }
+
+  if (command === 'git' && args[0] === 'blame') {
+    return [
+      { type: 'output' as const, text: 'g  (Mar 2026)  line 1:  // TODO: fix this later' },
+      { type: 'output' as const, text: 'g  (Mar 2026)  line 2:  // I\'ll remember why this works' },
+      { type: 'output' as const, text: 'g  (Mar 2026)  line 3:  // don\'t touch this' },
+      { type: 'output' as const, text: 'g  (Mar 2026)  line 4:  // here be dragons' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'Blame: yourself. Always yourself.' },
+    ]
+  }
+
+  if (command === 'nmap') {
+    const target = args[0] || 'miserabletaco.dev'
+    return [
+      { type: 'output' as const, text: `Starting Nmap scan of ${target}` },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'PORT     STATE    SERVICE' },
+      { type: 'output' as const, text: '22/tcp   closed   ssh' },
+      { type: 'output' as const, text: '80/tcp   open     http' },
+      { type: 'output' as const, text: '443/tcp  open     https' },
+      { type: 'output' as const, text: '1337/tcp open     taste' },
+      { type: 'output' as const, text: '8080/tcp open     side-projects' },
+      { type: 'output' as const, text: '9001/tcp open     ambition (over 9000)' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: '6 services detected. 0 vulnerabilities. Nice try.' },
+    ]
+  }
+
+  if (command === 'traceroute') {
+    return [
+      { type: 'output' as const, text: 'traceroute to success (∞ hops max)' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: ' 1  idea.local          0.1ms' },
+      { type: 'output' as const, text: ' 2  prototype.dev        2.3ms' },
+      { type: 'output' as const, text: ' 3  * * * doubt.timeout  ∞ms' },
+      { type: 'output' as const, text: ' 4  refactor.again       45.2ms' },
+      { type: 'output' as const, text: ' 5  ship-it.prod         0.4ms' },
+      { type: 'output' as const, text: ' 6  users.pay            ???ms' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'Destination reached. Eventually.' },
+    ]
+  }
+
+  if (command === 'figlet') {
+    const text = args.join(' ').toUpperCase() || 'HI'
+    if (text.length > 8) {
+      return [{ type: 'error' as const, text: 'figlet: text too long (max 8 chars)' }]
+    }
+    // Simple block letter generator
+    const font: Record<string, string[]> = {
+      'H': ['\u2588  \u2588', '\u2588\u2588\u2588\u2588', '\u2588  \u2588', '\u2588  \u2588'],
+      'I': ['\u2588\u2588\u2588', ' \u2588 ', ' \u2588 ', '\u2588\u2588\u2588'],
+      'G': [' \u2588\u2588\u2588', '\u2588   ', '\u2588 \u2588\u2588', ' \u2588\u2588\u2588'],
+      'A': [' \u2588\u2588 ', '\u2588  \u2588', '\u2588\u2588\u2588\u2588', '\u2588  \u2588'],
+      'B': ['\u2588\u2588\u2588 ', '\u2588  \u2588', '\u2588\u2588\u2588 ', '\u2588\u2588\u2588 '],
+      'C': [' \u2588\u2588\u2588', '\u2588   ', '\u2588   ', ' \u2588\u2588\u2588'],
+      'D': ['\u2588\u2588\u2588 ', '\u2588  \u2588', '\u2588  \u2588', '\u2588\u2588\u2588 '],
+      'E': ['\u2588\u2588\u2588\u2588', '\u2588\u2588  ', '\u2588   ', '\u2588\u2588\u2588\u2588'],
+      'F': ['\u2588\u2588\u2588\u2588', '\u2588\u2588  ', '\u2588   ', '\u2588   '],
+      ' ': ['    ', '    ', '    ', '    '],
+    }
+    const rows = ['', '', '', '']
+    for (const ch of text) {
+      const glyph = font[ch] || font[' ']!
+      for (let r = 0; r < 4; r++) rows[r] += (glyph[r] ?? '    ') + ' '
+    }
+    return rows.map(r => ({ type: 'output' as const, text: r }))
+  }
+
+  if (command === 'cat' && args[0] === '/dev/urandom') {
+    let out = ''
+    const chars = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`abcdefABCDEF0123456789'
+    for (let i = 0; i < 160; i++) out += chars[Math.floor(Math.random() * chars.length)]
+    return [
+      { type: 'output' as const, text: out.slice(0, 40) },
+      { type: 'output' as const, text: out.slice(40, 80) },
+      { type: 'output' as const, text: out.slice(80, 120) },
+      { type: 'output' as const, text: out.slice(120) },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: '^C  (you probably wanted that)' },
+    ]
+  }
+
+  if (command === 'apt' || command === 'pip') {
+    return [
+      { type: 'output' as const, text: `${command}: command not found` },
+      { type: 'output' as const, text: 'This is a browser, not a server.' },
+      { type: 'output' as const, text: 'Try: brew' },
+    ]
+  }
+
+  if (command === 'wget') {
+    const url = args[0] || 'https://example.com'
+    return [
+      { type: 'output' as const, text: `--2026-03-11 15:42:00--  ${url}` },
+      { type: 'output' as const, text: 'Resolving... failed.' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'You can\'t download the internet from a portfolio.' },
+    ]
+  }
+
+  if (command === 'chmod') {
+    return [
+      { type: 'output' as const, text: 'chmod: changing permissions of \'everything\': Nice try.' },
+      { type: 'output' as const, text: 'You\'re a guest. Guests get read access.' },
+    ]
+  }
+
+  if (command === 'whois') {
+    return [
+      { type: 'output' as const, text: 'Domain: miserabletaco.dev' },
+      { type: 'output' as const, text: 'Registrant: G' },
+      { type: 'output' as const, text: 'Location: Singapore' },
+      { type: 'output' as const, text: 'Status: Building' },
+      { type: 'output' as const, text: 'Stack: React + Three.js + Zustand' },
+      { type: 'output' as const, text: 'Philosophy: Ship fast, care about taste' },
+      { type: 'output' as const, text: 'Coffee: Essential' },
+    ]
+  }
+
+  if (command === 'lolcat') {
+    const text = args.join(' ') || 'meow'
+    const rainbow = ['\x1b[31m', '\x1b[33m', '\x1b[32m', '\x1b[36m', '\x1b[34m', '\x1b[35m']
+    let colored = ''
+    for (let i = 0; i < text.length; i++) {
+      colored += rainbow[i % rainbow.length] + text[i]
+    }
+    return [
+      { type: 'output' as const, text: `lolcat: ANSI colors not supported in this terminal.` },
+      { type: 'output' as const, text: `But here's your text anyway: ${text}` },
+      { type: 'output' as const, text: '(Try "disco" for actual colors)' },
+    ]
+  }
+
+  if (command === 'rm' && args[0] === '-rf' && args[1] === '/' && args.includes('--no-preserve-root')) {
+    return [
+      { type: 'output' as const, text: 'Deleting system files...' },
+      { type: 'output' as const, text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
+      { type: 'output' as const, text: '' },
+      { type: 'output' as const, text: 'Just kidding. Everything is still here.' },
+      { type: 'output' as const, text: 'This portfolio is indestructible.' },
+      { type: 'output' as const, text: 'Like cockroaches and COBOL.' },
+    ]
   }
 
   if (command === 'disco') {
