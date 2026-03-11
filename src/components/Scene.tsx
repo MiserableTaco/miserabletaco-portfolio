@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { CAMERA, COLORS, DESKTOP_WIDTH, DESKTOP_HEIGHT, FOG, LIGHTING, MAX_PIXEL_RATIO, MONITOR } from '@/utils/constants'
 import { useSceneStore } from '@/store/sceneStore'
 import { useObjectStore } from '@/store/objectStore'
-import { FIRESTONE_DURATION } from '@/hooks/useAudio'
+import { DISCO_MELODY_DURATION } from '@/hooks/useAudio'
 
 // Check once at module level — won't change during session
 const prefersReducedMotion =
@@ -378,7 +378,7 @@ export function Scene() {
       if (discoStore.discoActive) {
         wasDiscoActive = true
         const dt = (performance.now() - discoStore.discoStartTime) / 1000
-        const discoDur = FIRESTONE_DURATION + 1 // melody + 1s buffer
+        const discoDur = DISCO_MELODY_DURATION + 1 // melody + 1s buffer
 
         if (dt > discoDur) {
           // Natural end — deactivateDisco handles audio stop + state reset

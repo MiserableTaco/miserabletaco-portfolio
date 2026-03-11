@@ -108,41 +108,40 @@ export function playSound(name: string) {
   }
 }
 
-// ── Firestone melody (Kygo-style pluck loop) ────────────────────────
+// ── Disco melody (tropical pluck loop) ───────────────────────────────
 
-let firestoneGain: GainNode | null = null
+let discoGain: GainNode | null = null
 
-export function playFirestone() {
+export function playDiscoMelody() {
   if (!ctx || !master || useAudioStore.getState().muted) return
   if (ctx.state === 'suspended') ctx.resume()
 
-  // Dedicated gain node so we can kill all Firestone audio on stop
-  firestoneGain = ctx.createGain()
-  firestoneGain.connect(master)
-  _playFirestoneInner(ctx, firestoneGain)
+  // Dedicated gain node so we can kill all disco audio on stop
+  discoGain = ctx.createGain()
+  discoGain.connect(master)
+  _playDiscoMelody(ctx, discoGain)
 }
 
-export function stopFirestone() {
-  if (firestoneGain && ctx) {
-    firestoneGain.gain.setValueAtTime(0, ctx.currentTime)
-    firestoneGain.disconnect()
-    firestoneGain = null
+export function stopDiscoMelody() {
+  if (discoGain && ctx) {
+    discoGain.gain.setValueAtTime(0, ctx.currentTime)
+    discoGain.disconnect()
+    discoGain = null
   }
 }
 
 // Duration of the melody in seconds (exported so animation can sync)
-export const FIRESTONE_DURATION = (60 / 114) * 4 * 4 * 3 // ~25.3s
+export const DISCO_MELODY_DURATION = (60 / 114) * 4 * 4 * 3 // ~25.3s
 
-function _playFirestoneInner(c: AudioContext, m: GainNode) {
-  // Firestone by Kygo ft. Conrad Sewell — key of D major / B minor, ~114 BPM
+function _playDiscoMelody(c: AudioContext, m: GainNode) {
+  // Original tropical pluck melody — D major / B minor, ~114 BPM
   // Chord progression: G - A - Bm - D (IV - V - vi - I)
-  // "Our hearts are like firestones / And when they strike, we feel the love"
   const bpm = 114
   const beat = 60 / bpm // ~0.526s per beat
   const eighth = beat / 2
   const t = c.currentTime + 0.1
 
-  // Kygo tropical pluck — triangle + slight detuned layer for width
+  // Tropical pluck — triangle + slight detuned layer for width
   function pluck(freq: number, time: number, dur: number, vol: number) {
     for (const detune of [0, 6]) {
       const osc = c.createOscillator()
@@ -207,9 +206,7 @@ function _playFirestoneInner(c: AudioContext, m: GainNode) {
   // 4 bars per section, each bar = 4 beats at 114bpm = ~2.1s per bar
   const barLen = beat * 4
 
-  // Vocal melody pluck — follows Conrad Sewell's chorus melody
-  // "Our hearts are like firestones / And when they strike, we feel the love
-  //  Sparks will fly, they ignite our bones / And when they strike, we light up the world"
+  // Vocal-style pluck melody over chord progression
   const melody = [
     // Bar 1 (G) — "Our hearts are like fire-stones"
     { n: Fs4, t: eighth },          // "Our"

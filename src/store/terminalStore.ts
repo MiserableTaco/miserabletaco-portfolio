@@ -763,7 +763,7 @@ function processCommand(input: string): TerminalLine[] {
     useObjectStore.getState().activateDisco()
     return [
       { type: 'output' as const, text: '> DISCO MODE ACTIVATED' },
-      { type: 'output' as const, text: '  \u266A Kygo \u2014 Firestone \u266A' },
+      { type: 'output' as const, text: '  \u266A Now playing: Tropical Pluck \u266A' },
       { type: 'output' as const, text: '  Type "stop" to end early' },
     ]
   }
