@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { CAMERA, COLORS, DESKTOP_WIDTH, DESKTOP_HEIGHT, FOG, LIGHTING, MAX_PIXEL_RATIO, MONITOR } from '@/utils/constants'
 import { useSceneStore } from '@/store/sceneStore'
 import { useObjectStore } from '@/store/objectStore'
+import { FIRESTONE_DURATION } from '@/hooks/useAudio'
 
 // Check once at module level — won't change during session
 const prefersReducedMotion =
@@ -181,6 +182,7 @@ export function Scene() {
     // --- Animation loop ---
     const startTime = performance.now()
     let animationId: number
+    let wasDiscoActive = false
 
     const animate = () => {
       animationId = requestAnimationFrame(animate)
@@ -374,24 +376,16 @@ export function Scene() {
       // Disco mode — rainbow lights, object bounce, auto-spin
       const discoStore = useObjectStore.getState()
       if (discoStore.discoActive) {
+        wasDiscoActive = true
         const dt = (performance.now() - discoStore.discoStartTime) / 1000
+        const discoDur = FIRESTONE_DURATION + 1 // melody + 1s buffer
 
-        if (dt > 32) {
-          // End disco
-          useObjectStore.setState({ discoActive: false, discoStartTime: 0 })
-          // Reset ceiling light to original color
-          ceilingLight.color.setHex(0xfff5e6)
-          ledMaterial.emissive.setHex(0x88bbff)
-          ledMaterial.emissiveIntensity = 1.0
-          // Reset object positions
-          for (const obj of interactiveObjects) {
-            if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
-          }
-          for (const obj of decorative) {
-            if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
-          }
+        if (dt > discoDur) {
+          // Natural end — deactivateDisco handles audio stop + state reset
+          discoStore.deactivateDisco()
         } else {
-          const fadeOut = dt > 30 ? 1 - (dt - 30) / 2 : 1
+          const fadeStart = discoDur - 2
+          const fadeOut = dt > fadeStart ? 1 - (dt - fadeStart) / 2 : 1
 
           // Rainbow ceiling light
           const hue = (dt * 0.5) % 1
@@ -426,6 +420,18 @@ export function Scene() {
           if (((spinState.velocity as number) ?? 0) < 10) {
             discoStore.interact('fidget_spinner', { velocity: 12 })
           }
+        }
+      } else if (wasDiscoActive) {
+        // Disco just ended (stop command or natural end) — reset everything
+        wasDiscoActive = false
+        ceilingLight.color.setHex(0xfff5e6)
+        ledMaterial.emissive.setHex(0x88bbff)
+        ledMaterial.emissiveIntensity = 1.0
+        for (const obj of interactiveObjects) {
+          if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
+        }
+        for (const obj of decorative) {
+          if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
         }
       }
 

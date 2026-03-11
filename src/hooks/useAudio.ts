@@ -110,11 +110,28 @@ export function playSound(name: string) {
 
 // ── Firestone melody (Kygo-style pluck loop) ────────────────────────
 
+let firestoneGain: GainNode | null = null
+
 export function playFirestone() {
   if (!ctx || !master || useAudioStore.getState().muted) return
   if (ctx.state === 'suspended') ctx.resume()
-  _playFirestoneInner(ctx, master)
+
+  // Dedicated gain node so we can kill all Firestone audio on stop
+  firestoneGain = ctx.createGain()
+  firestoneGain.connect(master)
+  _playFirestoneInner(ctx, firestoneGain)
 }
+
+export function stopFirestone() {
+  if (firestoneGain && ctx) {
+    firestoneGain.gain.setValueAtTime(0, ctx.currentTime)
+    firestoneGain.disconnect()
+    firestoneGain = null
+  }
+}
+
+// Duration of the melody in seconds (exported so animation can sync)
+export const FIRESTONE_DURATION = (60 / 114) * 4 * 4 * 3 // ~25.3s
 
 function _playFirestoneInner(c: AudioContext, m: GainNode) {
   // Firestone by Kygo ft. Conrad Sewell — key of D major / B minor, ~114 BPM
@@ -182,51 +199,52 @@ function _playFirestoneInner(c: AudioContext, m: GainNode) {
 
   // D major scale notes
   const Fs4 = 369.99, G4 = 392.00, A4 = 440.00, B4 = 493.88
-  const Cs5 = 554.37, D5 = 587.33, E5 = 659.25, Fs5 = 739.99
-  const D4 = 293.66
+  const Cs5 = 554.37, D5 = 587.33, Fs5 = 739.99
+  const D4 = 293.66, E5 = 659.25
   // Bass register
   const G2 = 98.00, A2 = 110.00, B2 = 123.47, D3 = 146.83
 
   // 4 bars per section, each bar = 4 beats at 114bpm = ~2.1s per bar
   const barLen = beat * 4
 
-  // Main pluck melody — syncopated Kygo-style arpeggio pattern
-  // Outlines chord tones following the vocal contour of the chorus
+  // Vocal melody pluck — follows Conrad Sewell's chorus melody
+  // "Our hearts are like firestones / And when they strike, we feel the love
+  //  Sparks will fly, they ignite our bones / And when they strike, we light up the world"
   const melody = [
-    // Bar 1 (G major) — "Our hearts are like"
-    { n: B4, t: 0 },
-    { n: D5, t: eighth },
-    { n: G4, t: beat },
-    { n: B4, t: beat + eighth },
-    { n: D5, t: beat * 2 },
-    { n: B4, t: beat * 3 },
-    { n: G4, t: beat * 3 + eighth },
+    // Bar 1 (G) — "Our hearts are like fire-stones"
+    { n: Fs4, t: eighth },          // "Our"
+    { n: Fs4, t: beat },            // "hearts"
+    { n: Fs4, t: beat + eighth },   // "are"
+    { n: A4, t: beat * 2 },         // "like"
+    { n: B4, t: beat * 2 + eighth },// "fire-"
+    { n: A4, t: beat * 3 + eighth },// "-stones"
 
-    // Bar 2 (A major) — "firestones / And when they"
-    { n: A4, t: barLen },
-    { n: Cs5, t: barLen + eighth },
-    { n: E5, t: barLen + beat },
-    { n: Cs5, t: barLen + beat * 2 },
-    { n: A4, t: barLen + beat * 2 + eighth },
-    { n: E5, t: barLen + beat * 3 },
-    { n: Cs5, t: barLen + beat * 3 + eighth },
+    // Bar 2 (A) — "And when they strike, we feel the love"
+    { n: Fs4, t: barLen + eighth },           // "And"
+    { n: Fs4, t: barLen + beat },             // "when"
+    { n: A4, t: barLen + beat + eighth },     // "they"
+    { n: B4, t: barLen + beat * 2 },          // "strike"
+    { n: D5, t: barLen + beat * 2 + eighth }, // "we"
+    { n: B4, t: barLen + beat * 3 },          // "feel the"
+    { n: A4, t: barLen + beat * 3 + eighth }, // "love"
 
-    // Bar 3 (Bm) — "strike, we feel the"
-    { n: B4, t: barLen * 2 },
-    { n: D5, t: barLen * 2 + eighth },
-    { n: Fs5, t: barLen * 2 + beat },
-    { n: D5, t: barLen * 2 + beat * 2 },
-    { n: Fs5, t: barLen * 2 + beat * 2 + eighth },
-    { n: B4, t: barLen * 2 + beat * 3 },
+    // Bar 3 (Bm) — "Sparks will fly, they ignite our bones"
+    { n: Fs4, t: barLen * 2 + eighth },           // "Sparks"
+    { n: A4, t: barLen * 2 + beat },               // "will"
+    { n: B4, t: barLen * 2 + beat + eighth },      // "fly"
+    { n: B4, t: barLen * 2 + beat * 2 },           // "they ig-"
+    { n: A4, t: barLen * 2 + beat * 2 + eighth },  // "-nite"
+    { n: B4, t: barLen * 2 + beat * 3 },           // "our"
+    { n: Fs4, t: barLen * 2 + beat * 3 + eighth }, // "bones"
 
-    // Bar 4 (D major) — "love" (resolution)
-    { n: D5, t: barLen * 3 },
-    { n: Fs4, t: barLen * 3 + eighth },
-    { n: A4, t: barLen * 3 + beat },
-    { n: D5, t: barLen * 3 + beat + eighth },
-    { n: Fs5, t: barLen * 3 + beat * 2 },
-    { n: D5, t: barLen * 3 + beat * 3 },
-    { n: A4, t: barLen * 3 + beat * 3 + eighth },
+    // Bar 4 (D) — "And when they strike, we light up the world"
+    { n: Fs4, t: barLen * 3 + eighth },           // "And"
+    { n: A4, t: barLen * 3 + beat },               // "when they"
+    { n: B4, t: barLen * 3 + beat + eighth },      // "strike"
+    { n: D5, t: barLen * 3 + beat * 2 },           // "we"
+    { n: D5, t: barLen * 3 + beat * 2 + eighth },  // "light up"
+    { n: B4, t: barLen * 3 + beat * 3 },           // "the"
+    { n: A4, t: barLen * 3 + beat * 3 + eighth },  // "world"
   ]
 
   // Bass — chord roots on each bar
@@ -237,17 +255,17 @@ function _playFirestoneInner(c: AudioContext, m: GainNode) {
     { n: D3, t: barLen * 3, d: barLen },
   ]
 
-  // Pad chords — G, A, Bm, D
+  // Pad chords — G, A, Bm, D (lower voicing to not clash with melody)
   const chords = [
-    { ns: [G4, B4, D5],     t: 0,          d: barLen },
-    { ns: [A4, Cs5, E5],    t: barLen,     d: barLen },
-    { ns: [B4, D5, Fs5],    t: barLen * 2, d: barLen },
-    { ns: [D4, Fs4, A4],    t: barLen * 3, d: barLen },
+    { ns: [G4, B4, D5],       t: 0,          d: barLen },
+    { ns: [A4, Cs5, E5],      t: barLen,     d: barLen },
+    { ns: [B4, D5, Fs5],      t: barLen * 2, d: barLen },
+    { ns: [D4, Fs4, A4],      t: barLen * 3, d: barLen },
   ]
 
   const loopLen = barLen * 4 // ~8.4s per loop
 
-  // ~3 loops = ~25s (fits 30s disco)
+  // 3 loops = ~25s
   for (let loop = 0; loop < 3; loop++) {
     const ls = t + loop * loopLen
     const fadeM = loop === 2 ? 0.5 : 1

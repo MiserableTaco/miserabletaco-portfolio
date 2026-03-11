@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { playFirestone } from '@/hooks/useAudio'
+import { playFirestone, stopFirestone } from '@/hooks/useAudio'
 
 interface ObjectStoreState {
   objects: Record<string, { interacted: boolean; custom: Record<string, unknown> }>
@@ -39,5 +39,8 @@ export const useObjectStore = create<ObjectStoreState>((set, get) => ({
     playFirestone()
     return { discoActive: true, discoStartTime: performance.now() }
   }),
-  deactivateDisco: () => set({ discoActive: false, discoStartTime: 0 }),
+  deactivateDisco: () => {
+    stopFirestone()
+    set({ discoActive: false, discoStartTime: 0 })
+  },
 }))
