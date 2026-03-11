@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
+// import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { CAMERA, COLORS, DESKTOP_WIDTH, DESKTOP_HEIGHT, FOG, LIGHTING, MAX_PIXEL_RATIO, MONITOR } from '@/utils/constants'
 import { useSceneStore } from '@/store/sceneStore'
@@ -201,10 +201,6 @@ export function Scene() {
     // --- Post-processing ---
     const composer = new EffectComposer(renderer)
     composer.addPass(new RenderPass(scene, camera))
-
-    const gtaoPass = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight)
-    gtaoPass.output = GTAOPass.OUTPUT.Denoise
-    composer.addPass(gtaoPass)
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
