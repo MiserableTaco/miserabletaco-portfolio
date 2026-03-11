@@ -74,8 +74,8 @@ export function Scene() {
     ceilingLight.position.set(0.5, 3.5, 1.5)
     ceilingLight.target.position.set(0, 0.3, 0.15)
     ceilingLight.castShadow = true
-    ceilingLight.shadow.mapSize.width = 4096
-    ceilingLight.shadow.mapSize.height = 4096
+    ceilingLight.shadow.mapSize.width = 2048
+    ceilingLight.shadow.mapSize.height = 2048
     ceilingLight.shadow.camera.left = -1.8
     ceilingLight.shadow.camera.right = 1.8
     ceilingLight.shadow.camera.top = 2.0
@@ -157,6 +157,7 @@ export function Scene() {
     }
 
     // Add sticky note and cork board notes to interactive objects for raycasting
+    const zoomableNotes: THREE.Object3D[] = [stickyNote, ...corkNotes]
     interactiveObjects.push(stickyNote)
     for (const n of corkNotes) {
       interactiveObjects.push(n)
@@ -293,59 +294,54 @@ export function Scene() {
         }
       }
 
-      // Fan blade spin
-      const fanState = useObjectStore.getState().getCustom('desk_fan')
-      const fanSpinning = fanState.spinning as boolean ?? false
-      let fanSpeed = fanState.speed as number ?? 0
-
-      if (fanSpinning && fanSpeed < 15) {
-        fanSpeed = Math.min(fanSpeed + 0.15, 15)
-        useObjectStore.getState().interact('desk_fan', { spinning: true, speed: fanSpeed })
-      } else if (!fanSpinning && fanSpeed > 0) {
-        fanSpeed = Math.max(fanSpeed - 0.05, 0)
-        useObjectStore.getState().interact('desk_fan', { spinning: false, speed: fanSpeed })
-      }
-
+      // Fan blade spin — use local speed to avoid store writes every frame
       if (fanBladesGroup) {
+        const fanState = useObjectStore.getState().getCustom('desk_fan')
+        const fanSpinning = fanState.spinning as boolean ?? false
+        let fanSpeed = fanState.speed as number ?? 0
+
+        if (fanSpinning && fanSpeed < 15) {
+          fanSpeed = Math.min(fanSpeed + 0.15, 15)
+          useObjectStore.getState().interact('desk_fan', { spinning: true, speed: fanSpeed })
+        } else if (!fanSpinning && fanSpeed > 0.01) {
+          fanSpeed = Math.max(fanSpeed - 0.05, 0)
+          useObjectStore.getState().interact('desk_fan', { spinning: false, speed: fanSpeed })
+        }
+
         fanBladesGroup.rotation.z += fanSpeed * 0.016
       }
 
-      // Fidget spinner
-      const spinState = useObjectStore.getState().getCustom('fidget_spinner')
-      let spinVelocity = spinState.velocity as number ?? 0
-
-      if (spinVelocity > 0.01) {
-        spinVelocity *= 0.997
-        useObjectStore.getState().interact('fidget_spinner', { velocity: spinVelocity })
-      } else if (spinVelocity > 0) {
-        spinVelocity = 0
-        useObjectStore.getState().interact('fidget_spinner', { velocity: 0 })
-      }
-
+      // Fidget spinner — only write to store when velocity is changing
       if (spinnerArmGroup) {
-        spinnerArmGroup.rotation.y += spinVelocity * 0.016
+        const spinState = useObjectStore.getState().getCustom('fidget_spinner')
+        let spinVelocity = spinState.velocity as number ?? 0
+
+        if (spinVelocity > 0.01) {
+          spinVelocity *= 0.997
+          useObjectStore.getState().interact('fidget_spinner', { velocity: spinVelocity })
+          spinnerArmGroup.rotation.y += spinVelocity * 0.016
+        } else if (spinVelocity > 0) {
+          useObjectStore.getState().interact('fidget_spinner', { velocity: 0 })
+        }
       }
 
-      // Note zoom-to-read
+      // Note zoom-to-read — iterate collected notes instead of scene.traverse
       const zoomedId = useObjectStore.getState().zoomedNoteId
-      scene.traverse((obj) => {
-        if (obj.userData?.type === 'postit') {
-          const isZoomed = obj.userData.id === zoomedId
-          const targetScale = isZoomed ? 6 : 1
-          const targetZ = isZoomed ? camera.position.z - 0.8 : obj.userData.originalZ
-          const targetY = isZoomed ? camera.position.y : obj.userData.originalY
-          const targetX = isZoomed ? camera.position.x : obj.userData.originalX
+      for (const note of zoomableNotes) {
+        const isZoomed = note.userData.id === zoomedId
+        const targetScale = isZoomed ? 6 : 1
+        const targetZ = isZoomed ? camera.position.z - 0.8 : note.userData.originalZ
+        const targetY = isZoomed ? camera.position.y : note.userData.originalY
+        const targetX = isZoomed ? camera.position.x : note.userData.originalX
 
-          obj.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.12)
+        note.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.12)
 
-          // Only move world position for non-parented notes; parented notes need world position math
-          if (!obj.parent || obj.parent === scene) {
-            obj.position.x += (targetX - obj.position.x) * 0.12
-            obj.position.y += (targetY - obj.position.y) * 0.12
-            obj.position.z += (targetZ - obj.position.z) * 0.12
-          }
+        if (!note.parent || note.parent === scene) {
+          note.position.x += (targetX - note.position.x) * 0.12
+          note.position.y += (targetY - note.position.y) * 0.12
+          note.position.z += (targetZ - note.position.z) * 0.12
         }
-      })
+      }
 
       // Water bottle spill particles
       const bottleState = useObjectStore.getState().getCustom('water_bottle')
@@ -1006,7 +1002,7 @@ function createKeyboard(): THREE.Group {
 
 function createDeskFan(envMap: THREE.Texture | null): { fan: THREE.Group; bladesGroup: THREE.Group } {
   const fan = new THREE.Group()
-  fan.position.set(-0.55, 0.31, 0.50)
+  fan.position.set(-0.85, 0.31, 0.40)
   fan.userData = { interactive: true, id: 'desk_fan' }
 
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.4, envMap })
@@ -1374,7 +1370,7 @@ function createTapeDispenser(envMap: THREE.Texture): THREE.Group {
 
 function createFidgetSpinner(_scene: THREE.Scene, envMap: THREE.Texture | null) {
   const spinner = new THREE.Group()
-  spinner.position.set(0.20, 0.315, 0.52)
+  spinner.position.set(0.40, 0.315, 0.52)
   spinner.userData = { interactive: true, id: 'fidget_spinner' }
 
   // Everything lies flat on desk (XZ plane), spins around Y axis
