@@ -140,7 +140,7 @@ function processCommand(input: string): TerminalLine[] {
   }
 
   if (command === 'whoami') {
-    return [{ type: 'output', text: 'Solo indie dev. Singapore. Building invisible infrastructure.' }]
+    return [{ type: 'output', text: 'Solo builder. Singapore. Taste + execution.' }]
   }
 
   if (command === 'pwd') {

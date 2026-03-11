@@ -53,66 +53,60 @@ export const UNDERTOW_FRAGMENTS = [
 ]
 
 export const ABOUT_LINES = [
-  'G. Solo indie dev, Singapore.',
+  'G. Singapore.',
   '',
-  'Three projects:',
+  'Three things shipped:',
   '',
-  'TRUST  —  AcadCert + VeriCert',
-  '  Cryptographic credential platform. RSA-4096,',
-  '  RFC 3161, AES-256-GCM. Building credentials',
-  '  that outlive the institutions that issue them.',
+  'TRUST \u2014 AcadCert + VeriCert',
+  '  Cryptographic credential verification. RSA-4096, RFC 3161,',
+  '  AES-256-GCM. Credentials that outlive institutions.',
   '  > acadcert.com',
   '  > verify.acadcert.com',
   '',
-  'CULTURE  —  DefMarks',
-  '  Cultural publication. Finding connections',
-  '  between things people assume are unrelated.',
-  '  Articles, analysis, unexpected threads.',
+  'CULTURE \u2014 DefMarks',
+  '  Finding connections between things people think are unrelated.',
+  '  Design, analysis, unexpected threads.',
   '  > defmarks.com',
   '',
-  'CONSCIOUSNESS  —  ARES',
-  '  Science fiction universe. Book series + grand',
-  '  strategy game set in 2150 Southeast Asia.',
-  '  Post-collapse river corridor politics.',
+  'ARES \u2014 \u6218\u795E (Undertow)',
+  '  Political strategy game + book series. 2150 Southeast Asia,',
+  '  post-collapse river corridor warfare. Naval combat, faction',
+  '  politics, resource scarcity. Writing \u88C2\u4E16\u7EAA\u00B7\u6D4A\u6D41.',
   '  > play.aresundertow.com',
   '',
-  'I like invisible infrastructure plays.',
-  'Willing-to-pay users, not crowdsourced ideas.',
-  'Strong filter for things that won\'t work',
-  'in practice.',
+  'Filter: Build for people who\'ll pay, not crowdsourced ideas.',
+  'If users won\'t open wallets, it\'s not ready.',
   '',
-  'Long-term: ARES as identity infrastructure.',
-  'Define what you did, who you are, that you are.',
+  'Chinese literature, invisible infrastructure, browser extensions.',
+  'The build process matters as much as the output.',
 ]
 
 export const CONTACT_LINES = [
   'Email: gerard.qiu803@gmail.com',
-  'GitHub: github.com/MiserableTaco',
+  'GitHub: Private repos',
   '',
   'Singapore.',
   '',
-  'Down to talk about:',
-  '  Technical collabs, indie product ideas,',
-  '  Chinese literature, SF worldbuilding,',
-  '  browser extensions.',
+  'Down to talk: Product collabs, SF worldbuilding, Chinese lit,',
+  'browser extensions, trust infrastructure.',
   '',
-  'Not interested in:',
-  '  Generic pitches, crowdsourced anything,',
-  '  consulting unrelated to my work.',
+  'Not interested: Generic pitches, crowdsourced anything,',
+  '"just need a developer" requests.',
+  '',
+  'I ship fast and care about taste.',
 ]
 
 // ── Link maps (line index → URL) ────────────────────────────────────
 
 export const ABOUT_LINKS: Record<number, string> = {
-  8: 'https://acadcert.com',
-  9: 'https://verify.acadcert.com',
-  15: 'https://defmarks.com',
-  21: 'https://play.aresundertow.com',
+  7: 'https://acadcert.com',
+  8: 'https://verify.acadcert.com',
+  13: 'https://defmarks.com',
+  19: 'https://play.aresundertow.com',
 }
 
 export const CONTACT_LINKS: Record<number, string> = {
   0: 'mailto:gerard.qiu803@gmail.com',
-  1: 'https://github.com/MiserableTaco',
 }
 
 // ── Store ───────────────────────────────────────────────────────────
