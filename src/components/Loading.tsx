@@ -22,7 +22,7 @@ export function Loading({ onComplete }: LoadingProps) {
 
     const sequence = async () => {
       // Dark pause
-      await sleep(800)
+      await sleep(400)
       if (cancelled) return
       setStage('typing')
 
@@ -30,20 +30,20 @@ export function Loading({ onComplete }: LoadingProps) {
       for (let i = 0; i <= domain.length; i++) {
         if (cancelled) return
         setTyped(domain.slice(0, i))
-        await sleep(55 + Math.random() * 40)
+        await sleep(40 + Math.random() * 30)
       }
 
       // Hold for a moment
-      await sleep(600)
+      await sleep(400)
       if (cancelled) return
       setStage('hold')
 
-      await sleep(900)
+      await sleep(600)
       if (cancelled) return
       setShowCursor(false)
       setStage('fadeout')
 
-      await sleep(800)
+      await sleep(500)
       if (cancelled) return
       complete()
     }

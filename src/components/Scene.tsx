@@ -42,8 +42,30 @@ export function Scene() {
     renderer.setClearColor(COLORS.fog)
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.BasicShadowMap
-    renderer.toneMapping = THREE.AgXToneMapping
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.2
+
+    // Suppress Three.js r183 WebGL warning about FLIP_Y on 3D textures
+    // (cosmetic bug — pixelStorei called before texImage3D type check)
+    const gl = renderer.getContext() as WebGL2RenderingContext
+    if (gl.texImage3D) {
+      const origTexImage3D = gl.texImage3D.bind(gl)
+      gl.texImage3D = function (this: WebGL2RenderingContext, ...args: Parameters<WebGL2RenderingContext['texImage3D']>) {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+        return origTexImage3D(...args)
+      } as WebGL2RenderingContext['texImage3D']
+    }
+
+    // --- Environment map (procedural — enables metallic reflections) ---
+    const pmrem = new THREE.PMREMGenerator(renderer)
+    const envScene = new THREE.Scene()
+    envScene.add(new THREE.AmbientLight(0xffffff, 1.2))
+    const envDir = new THREE.DirectionalLight(0xfff8f0, 2.0)
+    envDir.position.set(1, 2, 1)
+    envScene.add(envDir)
+    scene.environment = pmrem.fromScene(envScene, 0.04).texture
+    pmrem.dispose()
 
     // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(COLORS.ambient, LIGHTING.ambient)
@@ -199,9 +221,12 @@ export function Scene() {
 
       camera.lookAt(CAMERA.lookAt.x, CAMERA.lookAt.y, CAMERA.lookAt.z)
 
-      // LED pulse (0.5 → 1.0 intensity cycle) — skip during disco (rainbow overrides)
+      // LED color — green when on, dim red when off (skip during disco)
+      const monitorOn = useObjectStore.getState().monitorOn
       if (!useObjectStore.getState().discoActive) {
-        ledMaterial.emissiveIntensity = 0.5 + Math.sin(elapsed * 2) * 0.5
+        ledMaterial.color.setHex(monitorOn ? 0x00cc44 : 0x660000)
+        ledMaterial.emissive.setHex(monitorOn ? 0x00cc44 : 0x660000)
+        ledMaterial.emissiveIntensity = monitorOn ? 0.4 : 0.15
       }
 
       // Clock hands — real time
@@ -425,14 +450,40 @@ export function Scene() {
         // Disco just ended (stop command or natural end) — reset everything
         wasDiscoActive = false
         ceilingLight.color.setHex(0xfff5e6)
-        ledMaterial.emissive.setHex(0x88bbff)
-        ledMaterial.emissiveIntensity = 1.0
+        const monOn = useObjectStore.getState().monitorOn
+        ledMaterial.color.setHex(monOn ? 0x00cc44 : 0x660000)
+        ledMaterial.emissive.setHex(monOn ? 0x00cc44 : 0x660000)
+        ledMaterial.emissiveIntensity = monOn ? 0.4 : 0.15
         for (const obj of interactiveObjects) {
           if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
         }
         for (const obj of decorative) {
           if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
         }
+      }
+
+      // CRT shutdown animation — scale collapse
+      const monTransition = useObjectStore.getState().monitorTransition
+      const monTransStart = useObjectStore.getState().transitionStart
+      if (monTransition === 'shutting-down') {
+        const dt = (performance.now() - monTransStart) / 1000
+        if (dt < 0.4) {
+          // Collapse height to thin line
+          screenMesh.scale.y = Math.max(0.005, 1.0 - (dt / 0.4) * 0.995)
+        } else if (dt < 0.6) {
+          // Hold as bright horizontal line
+          screenMesh.scale.y = 0.005
+        } else if (dt < 0.8) {
+          // Collapse width to dot
+          screenMesh.scale.y = 0.005
+          screenMesh.scale.x = Math.max(0.0, 1.0 - ((dt - 0.6) / 0.2))
+        }
+      } else if (!useObjectStore.getState().monitorOn) {
+        // Monitor off — ensure scale is reset and screen is black
+        screenMesh.scale.set(1, 1, 1)
+      } else {
+        // Monitor on — normal scale
+        screenMesh.scale.set(1, 1, 1)
       }
 
       renderer.render(scene, camera)
@@ -495,29 +546,32 @@ function createMonitor() {
   const H = MONITOR.bezel.height
   const D = MONITOR.bezel.depth
 
+  // Apple-style brushed aluminum — true silver with metalness 1.0
+  // color: 0xE3E4E6 (measured Apple aluminum reflectance), roughness ~0.35
   // Multi-material: [+x right, -x left, +y top, -y bottom, +z front, -z back]
+  const alum = (c: number, r: number) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 1.0 })
   const bezelMats = [
-    new THREE.MeshStandardMaterial({ color: 0x3e3e3e, roughness: 0.7, metalness: 0.1 }),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.7, metalness: 0.1 }),
-    new THREE.MeshStandardMaterial({ color: 0x505050, roughness: 0.6, metalness: 0.1 }), // top — bright
-    new THREE.MeshStandardMaterial({ color: 0x282828, roughness: 0.8, metalness: 0.1 }), // bottom — shadow
-    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7, metalness: 0.1 }),
-    new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.8, metalness: 0.1 }),
+    alum(0xDCDDE0, 0.35),  // right
+    alum(0xD8D9DC, 0.35),  // left
+    alum(0xEAEBED, 0.28),  // top — catches ceiling light
+    alum(0xC8C9CC, 0.42),  // bottom — in shadow
+    alum(0xE3E4E6, 0.32),  // front — primary visible face
+    alum(0xD4D5D8, 0.38),  // back
   ]
 
   // Main bezel
   const bezel = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), bezelMats)
   group.add(bezel)
 
-  // CRT body — bulky rear housing, visible from elevated camera
+  // CRT body — rear housing, slightly darker aluminum
   const crtDepth = 0.30
   const crtMats = [
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.75 }),
-    new THREE.MeshStandardMaterial({ color: 0x363636, roughness: 0.75 }),
-    new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.65 }), // top — visible!
-    new THREE.MeshStandardMaterial({ color: 0x252525, roughness: 0.85 }),
-    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.75 }),
-    new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.8 }),
+    alum(0xD4D5D8, 0.38),
+    alum(0xD0D1D4, 0.38),
+    alum(0xE0E1E4, 0.30),  // top — visible from camera
+    alum(0xC0C1C4, 0.44),
+    alum(0xD8D9DC, 0.35),
+    alum(0xD0D1D4, 0.38),
   ]
   const crtBody = new THREE.Mesh(
     new THREE.BoxGeometry(W * 0.92, H * 0.85, crtDepth),
@@ -535,8 +589,8 @@ function createMonitor() {
   rearBody.position.z = -(D / 2 + crtDepth + rearDepth / 2)
   group.add(rearBody)
 
-  // Vents on CRT body top (visible from above)
-  const ventMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 })
+  // Vents on CRT body top — dark slots cut into aluminum
+  const ventMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.9 })
   const crtTopY = H * 0.85 / 2
   for (let i = 0; i < 9; i++) {
     const slot = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.005, 0.01), ventMat)
@@ -553,49 +607,62 @@ function createMonitor() {
   screenMesh.position.z = frontZ
   group.add(screenMesh)
 
-  // Brand plate — small lighter strip below screen on front face
+  // --- Front panel details (below screen, in bezel bottom strip) ---
+  // The bottom bezel strip is 0.10 units tall, centered at y = -(H/2 - 0.05)
+  const panelY = -(H / 2 - 0.05)
+
+  // Brand plate — polished inset strip
   const brandPlate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.02, 0.004),
-    new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.4, metalness: 0.3 }),
+    new THREE.BoxGeometry(0.22, 0.03, 0.006),
+    new THREE.MeshStandardMaterial({ color: 0xF0F0F2, roughness: 0.10, metalness: 1.0 }),
   )
-  brandPlate.position.set(0, -(H / 2 - 0.04), frontZ + 0.002)
+  brandPlate.position.set(-0.10, panelY, frontZ + 0.003)
   group.add(brandPlate)
 
-  // Adjustment knobs — row of small cylinders on bottom-right front face
-  const knobMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.25, metalness: 0.5 })
-  for (let i = 0; i < 4; i++) {
-    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 8), knobMat)
+  // Speaker grille — dark slits clearly visible against bright silver
+  const grilleMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 })
+  for (let i = 0; i < 5; i++) {
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.005, 0.005), grilleMat)
+    slit.position.set(-0.55, panelY + (i - 2) * 0.012, frontZ + 0.004)
+    group.add(slit)
+  }
+
+  // Adjustment knobs — darker aluminum cylinders
+  const knobMat = new THREE.MeshStandardMaterial({ color: 0xB0B0B4, roughness: 0.20, metalness: 1.0 })
+  for (let i = 0; i < 3; i++) {
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 8), knobMat)
     knob.rotation.x = Math.PI / 2
-    knob.position.set(0.35 + i * 0.05, -(H / 2 - 0.04), frontZ + 0.003)
+    knob.position.set(0.30 + i * 0.07, panelY, frontZ + 0.006)
     group.add(knob)
   }
 
-  // Power LED
+  // Power LED — bright green indicator
   const ledMaterial = new THREE.MeshStandardMaterial({
-    color: COLORS.monitor_glow,
-    emissive: COLORS.monitor_glow,
-    emissiveIntensity: 1.0,
+    color: 0x00cc44,
+    emissive: 0x00cc44,
+    emissiveIntensity: 0.6,
   })
   const led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), ledMaterial)
-  led.position.set(0.58, -(H / 2 - 0.04), frontZ + 0.004)
+  led.position.set(0.56, panelY, frontZ + 0.008)
   group.add(led)
 
-  // Power button
+  // Power button — dark contrasting button, protrudes past bezel for raycasting
   const btn = new THREE.Mesh(
-    new THREE.BoxGeometry(0.03, 0.02, 0.01),
-    new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.5 }),
+    new THREE.BoxGeometry(0.06, 0.04, 0.025),
+    new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6, metalness: 0.2 }),
   )
-  btn.position.set(0.62, -(H / 2 - 0.04), frontZ + 0.003)
+  btn.position.set(0.66, panelY, frontZ + 0.015)
+  btn.userData = { id: 'power_button', interactive: true }
   group.add(btn)
 
-  // Stand neck — chunky
+  // Stand — matching Apple silver aluminum
   const standMats = [
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0x363636, roughness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.7 }),
-    new THREE.MeshStandardMaterial({ color: 0x252525, roughness: 0.85 }),
-    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.8 }),
+    alum(0xD8D9DC, 0.35),
+    alum(0xD4D5D8, 0.35),
+    alum(0xE6E7EA, 0.28),
+    alum(0xC4C5C8, 0.42),
+    alum(0xDCDDE0, 0.32),
+    alum(0xD4D5D8, 0.38),
   ]
   const neck = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.12, 0.20), standMats)
   neck.position.set(0, -0.70, -0.02)
@@ -615,22 +682,22 @@ function createRoom(): THREE.Object3D[] {
   const mat = (color: number, rough = 0.9) =>
     new THREE.MeshStandardMaterial({ color, roughness: rough })
 
-  // Back wall — muted warm grey
-  const wall = new THREE.Mesh(new THREE.PlaneGeometry(5, 3.5), mat(0x4a4a52))
+  // Back wall — warm mid grey
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(5, 3.5), mat(0x5e5e66))
   wall.position.set(0, 1.4, -0.38)
 
-  // Floor — warm dark
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), mat(0x38383f, 0.95))
+  // Floor — warm mid-tone
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), mat(0x48474e, 0.92))
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0
 
-  // Desk surface — medium grey, visible
-  const deskMat = mat(0x555560, 0.8)
+  // Desk surface — mid grey
+  const deskMat = mat(0x63636c, 0.75)
   const surface = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.04, 0.85), deskMat)
   surface.position.set(0, 0.285, 0.15)
 
   // Desk side panels
-  const sideMat = mat(0x4a4a50, 0.85)
+  const sideMat = mat(0x585860, 0.80)
   const leftSide = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.28, 0.81), sideMat)
   leftSide.position.set(-1.08, 0.14, 0.15)
   const rightSide = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.28, 0.81), sideMat)

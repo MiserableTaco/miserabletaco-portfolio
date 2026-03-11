@@ -11,6 +11,11 @@ interface ObjectStoreState {
   discoStartTime: number
   activateDisco: () => void
   deactivateDisco: () => void
+  monitorOn: boolean
+  monitorTransition: 'shutting-down' | 'booting' | null
+  transitionStart: number
+  setMonitorOn: (on: boolean) => void
+  setMonitorTransition: (t: 'shutting-down' | 'booting' | null, start: number) => void
 }
 
 export const useObjectStore = create<ObjectStoreState>((set, get) => ({
@@ -43,4 +48,10 @@ export const useObjectStore = create<ObjectStoreState>((set, get) => ({
     stopDiscoMelody()
     set({ discoActive: false, discoStartTime: 0 })
   },
+
+  monitorOn: true,
+  monitorTransition: null,
+  transitionStart: 0,
+  setMonitorOn: (on) => set({ monitorOn: on }),
+  setMonitorTransition: (t, start) => set({ monitorTransition: t, transitionStart: start }),
 }))

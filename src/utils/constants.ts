@@ -22,28 +22,28 @@ export const CAMERA = {
   driftSpeed: 0.12,
 } as const
 
-// Colors (hex) — warm office, not horror
+// Colors (hex) — warm office, brighter overall
 export const COLORS = {
-  ambient: 0x808080,
+  ambient: 0x909098,
   monitor_glow: 0x88bbff,  // soft blue-white, not green
-  ceiling: 0xfff5e6,       // warm white
+  ceiling: 0xfff8f0,       // warm white
   desk: 0x5a5a5a,
   monitor_bezel: 0x333333,
-  fog: 0x2a2a35,
+  fog: 0x383844,
 } as const
 
-// Lighting intensities — bright enough to see objects
+// Lighting intensities — balanced: visible but not washed out
 export const LIGHTING = {
-  ambient: 1.0,
+  ambient: 1.15,
   monitor_glow: 0.5,
   monitor_glow_range: 6,
-  ceiling: 0.8,
+  ceiling: 0.9,
 } as const
 
 // Fog — pushed back so objects are clearly visible
 export const FOG = {
-  near: 4,
-  far: 20,
+  near: 5,
+  far: 25,
 } as const
 
 // Desktop UI

@@ -31,6 +31,7 @@ const OBJECT_SOUNDS: Record<string, string> = {
   postit_3: 'snap',
   postit_4: 'snap',
   sticky_note: 'snap',
+  power_button: 'lamp',
 }
 
 export function useRaycaster() {
@@ -308,6 +309,27 @@ export function useRaycaster() {
       // Play sound
       const sound = OBJECT_SOUNDS[id]
       if (sound) playSound(sound)
+
+      // Power button — toggle monitor on/off with CRT animation
+      if (id === 'power_button') {
+        if (oStore.monitorTransition) return // animation in progress
+        if (oStore.monitorOn) {
+          // Shut down
+          oStore.setMonitorTransition('shutting-down', performance.now())
+          setTimeout(() => {
+            oStore.setMonitorOn(false)
+            oStore.setMonitorTransition(null, 0)
+          }, 800)
+        } else {
+          // Boot up
+          oStore.setMonitorOn(true)
+          oStore.setMonitorTransition('booting', performance.now())
+          setTimeout(() => {
+            oStore.setMonitorTransition(null, 0)
+          }, 2000)
+        }
+        return
+      }
 
       // Visual feedback per object
       switch (id) {

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useSceneStore } from '@/store/sceneStore'
 import { useDesktopStore } from '@/store/desktopStore'
 import { useTerminalStore } from '@/store/terminalStore'
+import { useObjectStore } from '@/store/objectStore'
 import {
   usePortfolioStore,
   ABOUT_LINES, CONTACT_LINES,
@@ -9,6 +10,10 @@ import {
 } from '@/store/portfolioStore'
 import type { DesktopIcon, DesktopWindow } from '@/store/desktopStore'
 import { DESKTOP_WIDTH, DESKTOP_HEIGHT, DESKTOP } from '@/utils/constants'
+
+// ── Dirty-flag rendering ─────────────────────────────────────────────
+let desktopDirty = true
+export function markDesktopDirty() { desktopDirty = true }
 
 // Dark Win98 theme
 const T = {
@@ -47,9 +52,77 @@ export function Desktop() {
     desktopCanvas.width = DESKTOP_WIDTH
     desktopCanvas.height = DESKTOP_HEIGHT
 
+    // Subscribe to store changes → mark dirty
+    const unsub1 = useDesktopStore.subscribe(() => { desktopDirty = true })
+    const unsub2 = useTerminalStore.subscribe(() => { desktopDirty = true })
+    const unsub3 = usePortfolioStore.subscribe(() => { desktopDirty = true })
+    let prevMonState = { on: useObjectStore.getState().monitorOn, tr: useObjectStore.getState().monitorTransition }
+    const unsub4 = useObjectStore.subscribe((s) => {
+      if (s.monitorOn !== prevMonState.on || s.monitorTransition !== prevMonState.tr) {
+        prevMonState = { on: s.monitorOn, tr: s.monitorTransition }
+        desktopDirty = true
+      }
+    })
+
     let rafId: number
+    let lastBlinkPhase = -1
+    let lastClockMinute = -1
 
     const render = () => {
+      rafId = requestAnimationFrame(render)
+
+      // Track cursor blink and clock minute to trigger redraws
+      const blinkPhase = Math.floor(performance.now() / 500) % 2
+      const clockMinute = new Date().getMinutes()
+      if (blinkPhase !== lastBlinkPhase) { lastBlinkPhase = blinkPhase; desktopDirty = true }
+      if (clockMinute !== lastClockMinute) { lastClockMinute = clockMinute; desktopDirty = true }
+
+      if (!desktopDirty) return
+      desktopDirty = false
+
+      const { monitorOn, monitorTransition, transitionStart } = useObjectStore.getState()
+
+      // Monitor OFF — black screen
+      if (!monitorOn && !monitorTransition) {
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(0, 0, DESKTOP_WIDTH, DESKTOP_HEIGHT)
+        canvasTexture.needsUpdate = true
+        return
+      }
+
+      // Boot animation — BIOS text
+      if (monitorTransition === 'booting') {
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(0, 0, DESKTOP_WIDTH, DESKTOP_HEIGHT)
+        const bootLines = [
+          'ARES BIOS v4.5',
+          'Memory test... 640K OK',
+          'Detecting drives... [OK]',
+          'Loading ARES kernel...',
+          'Initializing desktop...',
+        ]
+        const elapsed = (performance.now() - transitionStart) / 1000
+        const visibleLines = Math.min(bootLines.length, Math.floor(elapsed / 0.3) + 1)
+        ctx.fillStyle = '#00cc44'
+        ctx.font = '26px "Courier New", monospace'
+        ctx.textAlign = 'left'
+        for (let i = 0; i < visibleLines; i++) {
+          ctx.fillText(bootLines[i], 40, 80 + i * 40)
+        }
+        canvasTexture.needsUpdate = true
+        desktopDirty = true // keep redrawing during boot
+        return
+      }
+
+      // Shutdown animation — desktop renders white (Scene.tsx handles scale)
+      if (monitorTransition === 'shutting-down') {
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, DESKTOP_WIDTH, DESKTOP_HEIGHT)
+        canvasTexture.needsUpdate = true
+        return
+      }
+
+      // Normal desktop rendering
       const { icons, windows, selectedIconId } = useDesktopStore.getState()
 
       ctx.fillStyle = T.desktopBg
@@ -68,11 +141,13 @@ export function Desktop() {
       drawScanlines(ctx)
 
       canvasTexture.needsUpdate = true
-      rafId = requestAnimationFrame(render)
     }
 
     render()
-    return () => cancelAnimationFrame(rafId)
+    return () => {
+      cancelAnimationFrame(rafId)
+      unsub1(); unsub2(); unsub3(); unsub4()
+    }
   }, [desktopCanvas, canvasTexture])
 
   return null
