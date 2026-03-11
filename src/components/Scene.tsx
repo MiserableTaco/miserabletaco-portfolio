@@ -384,11 +384,12 @@ export function Scene() {
           ledMaterial.emissive.setHex(0x88bbff)
           ledMaterial.emissiveIntensity = 1.0
           // Reset object positions
-          scene.traverse((obj) => {
-            if (obj.userData?.originalY != null && obj.position.y < 1.0) {
-              obj.position.y = obj.userData.originalY
-            }
-          })
+          for (const obj of interactiveObjects) {
+            if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
+          }
+          for (const obj of decorative) {
+            if (obj.userData?.originalY != null) obj.position.y = obj.userData.originalY
+          }
         } else {
           const fadeOut = dt > 30 ? 1 - (dt - 30) / 2 : 1
 
@@ -400,13 +401,19 @@ export function Scene() {
           ledMaterial.emissive.setHSL(hue, 0.8, 0.5 * fadeOut)
           ledMaterial.emissiveIntensity = 1.0
 
-          // Bounce desk objects
-          scene.traverse((obj) => {
+          // Bounce desk objects — only upward (abs), use cached arrays
+          for (const obj of interactiveObjects) {
             if (obj.userData?.originalY != null && obj.userData?.bounceOffset != null) {
-              const bounce = Math.sin((dt + obj.userData.bounceOffset) * 6) * 0.008 * fadeOut
+              const bounce = Math.abs(Math.sin((dt + obj.userData.bounceOffset) * 6)) * 0.006 * fadeOut
               obj.position.y = obj.userData.originalY + bounce
             }
-          })
+          }
+          for (const obj of decorative) {
+            if (obj.userData?.originalY != null && obj.userData?.bounceOffset != null) {
+              const bounce = Math.abs(Math.sin((dt + obj.userData.bounceOffset) * 6)) * 0.006 * fadeOut
+              obj.position.y = obj.userData.originalY + bounce
+            }
+          }
 
           // Auto-spin fan
           const fanState = discoStore.getCustom('desk_fan')

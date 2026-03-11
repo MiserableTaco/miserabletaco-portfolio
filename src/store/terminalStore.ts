@@ -478,8 +478,16 @@ function processCommand(input: string): TerminalLine[] {
     return [
       { type: 'output' as const, text: '> DISCO MODE ACTIVATED' },
       { type: 'output' as const, text: '  \u266A Kygo \u2014 Firestone \u266A' },
-      { type: 'output' as const, text: '  Duration: 30 seconds' },
+      { type: 'output' as const, text: '  Type "stop" to end early' },
     ]
+  }
+
+  if (command === 'stop') {
+    if (useObjectStore.getState().discoActive) {
+      useObjectStore.getState().deactivateDisco()
+      return [{ type: 'output' as const, text: '> Disco stopped.' }]
+    }
+    return [{ type: 'output' as const, text: 'Nothing to stop.' }]
   }
 
   if (input) {

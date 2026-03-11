@@ -10,6 +10,7 @@ interface ObjectStoreState {
   discoActive: boolean
   discoStartTime: number
   activateDisco: () => void
+  deactivateDisco: () => void
 }
 
 export const useObjectStore = create<ObjectStoreState>((set, get) => ({
@@ -38,4 +39,5 @@ export const useObjectStore = create<ObjectStoreState>((set, get) => ({
     playFirestone()
     return { discoActive: true, discoStartTime: performance.now() }
   }),
+  deactivateDisco: () => set({ discoActive: false, discoStartTime: 0 }),
 }))

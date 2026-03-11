@@ -117,58 +117,27 @@ export function playFirestone() {
 }
 
 function _playFirestoneInner(c: AudioContext, m: GainNode) {
-  const bpm = 120
-  const beat = 60 / bpm // 0.5s per beat
+  // Firestone by Kygo ft. Conrad Sewell — key of D major / B minor, ~114 BPM
+  // Chord progression: G - A - Bm - D (IV - V - vi - I)
+  // "Our hearts are like firestones / And when they strike, we feel the love"
+  const bpm = 114
+  const beat = 60 / bpm // ~0.526s per beat
+  const eighth = beat / 2
   const t = c.currentTime + 0.1
 
-  // Kygo-style pluck — triangle wave, fast attack, medium decay
+  // Kygo tropical pluck — triangle + slight detuned layer for width
   function pluck(freq: number, time: number, dur: number, vol: number) {
-    const osc = c.createOscillator()
-    const gain = c.createGain()
-    osc.type = 'triangle'
-    osc.frequency.value = freq
-
-    gain.gain.setValueAtTime(0, time)
-    gain.gain.linearRampToValueAtTime(vol, time + 0.008)
-    gain.gain.exponentialRampToValueAtTime(vol * 0.25, time + 0.06)
-    gain.gain.exponentialRampToValueAtTime(0.001, time + dur)
-
-    osc.connect(gain)
-    gain.connect(m)
-    osc.start(time)
-    osc.stop(time + dur + 0.02)
-  }
-
-  // Sub bass
-  function bass(freq: number, time: number, dur: number) {
-    const osc = c.createOscillator()
-    const gain = c.createGain()
-    osc.type = 'sine'
-    osc.frequency.value = freq
-
-    gain.gain.setValueAtTime(0, time)
-    gain.gain.linearRampToValueAtTime(0.12, time + 0.05)
-    gain.gain.setValueAtTime(0.12, time + dur - 0.08)
-    gain.gain.linearRampToValueAtTime(0, time + dur)
-
-    osc.connect(gain)
-    gain.connect(m)
-    osc.start(time)
-    osc.stop(time + dur + 0.02)
-  }
-
-  // Warm pad — soft sine chords
-  function pad(freqs: number[], time: number, dur: number) {
-    for (const freq of freqs) {
+    for (const detune of [0, 6]) {
       const osc = c.createOscillator()
       const gain = c.createGain()
-      osc.type = 'sine'
+      osc.type = 'triangle'
       osc.frequency.value = freq
+      osc.detune.value = detune
 
       gain.gain.setValueAtTime(0, time)
-      gain.gain.linearRampToValueAtTime(0.035, time + 0.4)
-      gain.gain.setValueAtTime(0.035, time + dur - 0.4)
-      gain.gain.linearRampToValueAtTime(0, time + dur)
+      gain.gain.linearRampToValueAtTime(vol * (detune ? 0.4 : 1), time + 0.005)
+      gain.gain.exponentialRampToValueAtTime(vol * 0.15, time + 0.08)
+      gain.gain.exponentialRampToValueAtTime(0.001, time + dur)
 
       osc.connect(gain)
       gain.connect(m)
@@ -177,67 +146,119 @@ function _playFirestoneInner(c: AudioContext, m: GainNode) {
     }
   }
 
-  // Note frequencies (E minor / Em pentatonic)
-  const E4 = 329.63, G4 = 392.00, A4 = 440.00, B4 = 493.88
-  const D5 = 587.33, E5 = 659.25
-  const E3 = 164.81, G3 = 196.00, A3 = 220.00, B3 = 246.94
-  const C5 = 523.25, F5 = 698.46
+  // Sub bass — sine, follows chord roots
+  function bass(freq: number, time: number, dur: number) {
+    const osc = c.createOscillator()
+    const gain = c.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freq
+    gain.gain.setValueAtTime(0, time)
+    gain.gain.linearRampToValueAtTime(0.10, time + 0.04)
+    gain.gain.setValueAtTime(0.10, time + dur - 0.06)
+    gain.gain.linearRampToValueAtTime(0, time + dur)
+    osc.connect(gain)
+    gain.connect(m)
+    osc.start(time)
+    osc.stop(time + dur + 0.02)
+  }
 
-  // Firestone drop melody — 8 bars (16 beats at 120bpm = 8 seconds per loop)
-  const melodyPattern = [
-    // Bars 1-2: Opening ascending phrase
-    { n: E4, t: 0,           d: beat * 0.7 },
-    { n: G4, t: beat,        d: beat * 0.7 },
-    { n: A4, t: beat * 2,    d: beat * 0.7 },
-    { n: B4, t: beat * 3,    d: beat * 1.4 },
-    // Bars 3-4: Peak and descent
-    { n: D5, t: beat * 4,    d: beat * 0.7 },
-    { n: E5, t: beat * 5,    d: beat * 1.4 },
-    { n: D5, t: beat * 6.5,  d: beat * 0.7 },
-    { n: B4, t: beat * 7.5,  d: beat * 1.4 },
-    // Bars 5-6: Second phrase
-    { n: A4, t: beat * 8,    d: beat * 0.7 },
-    { n: B4, t: beat * 9,    d: beat * 0.7 },
-    { n: D5, t: beat * 10,   d: beat * 0.7 },
-    { n: B4, t: beat * 11,   d: beat * 1.4 },
-    // Bars 7-8: Resolution
-    { n: A4, t: beat * 12,   d: beat * 0.7 },
-    { n: G4, t: beat * 13,   d: beat * 1.4 },
-    { n: E4, t: beat * 14.5, d: beat * 1.4 },
-  ]
-
-  // Bass follows chord roots
-  const bassPattern = [
-    { n: E3, t: 0,           d: beat * 4 },
-    { n: G3, t: beat * 4,    d: beat * 4 },
-    { n: A3, t: beat * 8,    d: beat * 4 },
-    { n: B3, t: beat * 12,   d: beat * 4 },
-  ]
-
-  // Chord pads — Em progression
-  const chordPattern = [
-    { ns: [E4, G4, B4],    t: 0,          d: beat * 4 },
-    { ns: [G4, B4, D5],    t: beat * 4,   d: beat * 4 },
-    { ns: [A4, C5, E5],    t: beat * 8,   d: beat * 4 },
-    { ns: [B4, D5, F5],    t: beat * 12,  d: beat * 4 },
-  ]
-
-  const loopLen = beat * 16 // 8s per loop
-
-  // 4 loops = 32 seconds (covers 30s active + 2s fade)
-  for (let loop = 0; loop < 4; loop++) {
-    const ls = t + loop * loopLen
-    const fadeM = loop === 3 ? 0.4 : 1 // fade on last loop
-
-    for (const note of melodyPattern) {
-      pluck(note.n, ls + note.t, note.d, 0.22 * fadeM)
+  // Pad — warm sine chord, very soft
+  function pad(freqs: number[], time: number, dur: number) {
+    for (const freq of freqs) {
+      const osc = c.createOscillator()
+      const gain = c.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, time)
+      gain.gain.linearRampToValueAtTime(0.025, time + 0.3)
+      gain.gain.setValueAtTime(0.025, time + dur - 0.3)
+      gain.gain.linearRampToValueAtTime(0, time + dur)
+      osc.connect(gain)
+      gain.connect(m)
+      osc.start(time)
+      osc.stop(time + dur + 0.02)
     }
+  }
 
-    for (const note of bassPattern) {
+  // D major scale notes
+  const Fs4 = 369.99, G4 = 392.00, A4 = 440.00, B4 = 493.88
+  const Cs5 = 554.37, D5 = 587.33, E5 = 659.25, Fs5 = 739.99
+  const D4 = 293.66
+  // Bass register
+  const G2 = 98.00, A2 = 110.00, B2 = 123.47, D3 = 146.83
+
+  // 4 bars per section, each bar = 4 beats at 114bpm = ~2.1s per bar
+  const barLen = beat * 4
+
+  // Main pluck melody — syncopated Kygo-style arpeggio pattern
+  // Outlines chord tones following the vocal contour of the chorus
+  const melody = [
+    // Bar 1 (G major) — "Our hearts are like"
+    { n: B4, t: 0 },
+    { n: D5, t: eighth },
+    { n: G4, t: beat },
+    { n: B4, t: beat + eighth },
+    { n: D5, t: beat * 2 },
+    { n: B4, t: beat * 3 },
+    { n: G4, t: beat * 3 + eighth },
+
+    // Bar 2 (A major) — "firestones / And when they"
+    { n: A4, t: barLen },
+    { n: Cs5, t: barLen + eighth },
+    { n: E5, t: barLen + beat },
+    { n: Cs5, t: barLen + beat * 2 },
+    { n: A4, t: barLen + beat * 2 + eighth },
+    { n: E5, t: barLen + beat * 3 },
+    { n: Cs5, t: barLen + beat * 3 + eighth },
+
+    // Bar 3 (Bm) — "strike, we feel the"
+    { n: B4, t: barLen * 2 },
+    { n: D5, t: barLen * 2 + eighth },
+    { n: Fs5, t: barLen * 2 + beat },
+    { n: D5, t: barLen * 2 + beat * 2 },
+    { n: Fs5, t: barLen * 2 + beat * 2 + eighth },
+    { n: B4, t: barLen * 2 + beat * 3 },
+
+    // Bar 4 (D major) — "love" (resolution)
+    { n: D5, t: barLen * 3 },
+    { n: Fs4, t: barLen * 3 + eighth },
+    { n: A4, t: barLen * 3 + beat },
+    { n: D5, t: barLen * 3 + beat + eighth },
+    { n: Fs5, t: barLen * 3 + beat * 2 },
+    { n: D5, t: barLen * 3 + beat * 3 },
+    { n: A4, t: barLen * 3 + beat * 3 + eighth },
+  ]
+
+  // Bass — chord roots on each bar
+  const bassNotes = [
+    { n: G2, t: 0,          d: barLen },
+    { n: A2, t: barLen,     d: barLen },
+    { n: B2, t: barLen * 2, d: barLen },
+    { n: D3, t: barLen * 3, d: barLen },
+  ]
+
+  // Pad chords — G, A, Bm, D
+  const chords = [
+    { ns: [G4, B4, D5],     t: 0,          d: barLen },
+    { ns: [A4, Cs5, E5],    t: barLen,     d: barLen },
+    { ns: [B4, D5, Fs5],    t: barLen * 2, d: barLen },
+    { ns: [D4, Fs4, A4],    t: barLen * 3, d: barLen },
+  ]
+
+  const loopLen = barLen * 4 // ~8.4s per loop
+
+  // ~3 loops = ~25s (fits 30s disco)
+  for (let loop = 0; loop < 3; loop++) {
+    const ls = t + loop * loopLen
+    const fadeM = loop === 2 ? 0.5 : 1
+
+    for (const note of melody) {
+      pluck(note.n, ls + note.t, beat * 0.6, 0.18 * fadeM)
+    }
+    for (const note of bassNotes) {
       bass(note.n, ls + note.t, note.d)
     }
-
-    for (const chord of chordPattern) {
+    for (const chord of chords) {
       pad(chord.ns, ls + chord.t, chord.d)
     }
   }
