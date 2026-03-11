@@ -18,9 +18,9 @@ html, body {
   height: 100%;
 }
 
-/* Custom cursor */
-body {
-  cursor: none;
+/* Custom cursor — hide native cursor on all elements */
+html, body, canvas, div, * {
+  cursor: none !important;
 }
 
 #cursor {
@@ -32,6 +32,48 @@ body {
   font-size: 16px;
   line-height: 1;
   color: #00ff00;
+  will-change: left, top;
+}
+
+/* Mute button */
+#mute-btn {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: #1a1a1a;
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  padding: 6px 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  z-index: 9999;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+#mute-btn:hover {
+  opacity: 1;
+}
+
+/* Sound hint overlay */
+#sound-hint {
+  position: fixed;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #555;
+  z-index: 9999;
+  pointer-events: none;
+  animation: hintFade 4s ease-out forwards;
+}
+@keyframes hintFade {
+  0% { opacity: 0; }
+  15% { opacity: 0.7; }
+  70% { opacity: 0.7; }
+  100% { opacity: 0; }
 }
 
 /* Reduced motion: disable camera drift and animations */
