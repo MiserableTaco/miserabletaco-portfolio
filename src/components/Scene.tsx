@@ -1009,66 +1009,80 @@ function createDeskFan(envMap: THREE.Texture | null): { fan: THREE.Group; blades
   fan.position.set(-0.55, 0.31, 0.50)
   fan.userData = { interactive: true, id: 'desk_fan' }
 
-  // Base — flat cylinder
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.4, envMap })
+  const cageMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5, envMap })
+
+  // Base — flat cylinder sitting on desk
   const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.045, 0.015, 12),
-    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.4, envMap })
+    new THREE.CylinderGeometry(0.04, 0.045, 0.012, 12),
+    metalMat,
   )
+  base.position.y = 0.006
   base.castShadow = true
   base.receiveShadow = true
   fan.add(base)
 
-  // Motor housing
+  // Neck — short post from base to head
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.008, 0.010, 0.04, 8),
+    metalMat,
+  )
+  neck.position.y = 0.032
+  neck.castShadow = true
+  fan.add(neck)
+
+  // Head assembly — motor + cage + blades, facing toward camera (+Z)
+  const head = new THREE.Group()
+  head.position.y = 0.058
+
+  // Motor housing — behind the cage
   const motor = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.018, 0.018, 0.025, 8),
-    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.3, envMap })
+    new THREE.CylinderGeometry(0.016, 0.016, 0.020, 8),
+    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.3, envMap }),
   )
   motor.rotation.x = Math.PI / 2
-  motor.position.set(0, 0.06, -0.01)
+  motor.position.z = -0.010
   motor.castShadow = true
-  fan.add(motor)
+  head.add(motor)
 
-  // Cage ring
-  const cage = new THREE.Group()
-  cage.position.set(0, 0.06, 0.01)
-
+  // Cage ring — faces camera
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.045, 0.003, 6, 24),
-    new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5, envMap })
+    new THREE.TorusGeometry(0.040, 0.002, 6, 24),
+    cageMat,
   )
-  cage.add(ring)
+  ring.position.z = 0.005
+  head.add(ring)
 
-  // 8 cage bars
-  for (let i = 0; i < 8; i++) {
-    const angle = (Math.PI * 2 / 8) * i
-    const bar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.001, 0.001, 0.09, 4),
-      new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5 })
+  // Cage spokes — radial lines from center to ring, in the XY plane
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI * 2 / 6) * i
+    const spoke = new THREE.Mesh(
+      new THREE.BoxGeometry(0.001, 0.080, 0.001),
+      cageMat,
     )
-    bar.position.set(Math.cos(angle) * 0.045, Math.sin(angle) * 0.045, 0)
-    bar.rotation.z = angle + Math.PI / 2
-    cage.add(bar)
+    spoke.rotation.z = angle
+    spoke.position.z = 0.005
+    head.add(spoke)
   }
-  fan.add(cage)
 
-  // Blades — 3 planes that spin
+  // Blades — 3 flat paddles that spin in XY plane
   const bladesGroup = new THREE.Group()
-  bladesGroup.position.set(0, 0.06, 0.012)
+  bladesGroup.position.z = 0.003
   for (let i = 0; i < 3; i++) {
     const blade = new THREE.Mesh(
-      new THREE.BoxGeometry(0.035, 0.008, 0.002),
-      new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6, side: THREE.DoubleSide })
+      new THREE.BoxGeometry(0.030, 0.006, 0.001),
+      new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.5, side: THREE.DoubleSide }),
     )
     blade.rotation.z = (Math.PI * 2 / 3) * i
     blade.position.set(
-      Math.cos((Math.PI * 2 / 3) * i) * 0.018,
-      Math.sin((Math.PI * 2 / 3) * i) * 0.018,
-      0
+      Math.cos((Math.PI * 2 / 3) * i) * 0.015,
+      Math.sin((Math.PI * 2 / 3) * i) * 0.015,
+      0,
     )
-    blade.castShadow = true
     bladesGroup.add(blade)
   }
-  fan.add(bladesGroup)
+  head.add(bladesGroup)
+  fan.add(head)
 
   fan.castShadow = true
   fan.receiveShadow = true
@@ -1358,49 +1372,52 @@ function createTapeDispenser(envMap: THREE.Texture): THREE.Group {
 
 // ── Fidget Spinner ──────────────────────────────────────────────────
 
-function createFidgetSpinner(scene: THREE.Scene, envMap: THREE.Texture | null) {
+function createFidgetSpinner(_scene: THREE.Scene, envMap: THREE.Texture | null) {
   const spinner = new THREE.Group()
   spinner.position.set(0.20, 0.315, 0.52)
   spinner.userData = { interactive: true, id: 'fidget_spinner' }
 
-  // Center bearing
+  // Everything lies flat on desk (XZ plane), spins around Y axis
+  const armGroup = new THREE.Group()
+
+  // Center bearing — flat disc on desk
   const bearing = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, 0.008, 12),
+    new THREE.CylinderGeometry(0.010, 0.010, 0.005, 16),
     new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.15, metalness: 0.8, envMap }),
   )
-  bearing.rotation.x = Math.PI / 2
+  bearing.position.y = 0.0025
   bearing.castShadow = true
-  spinner.add(bearing)
+  armGroup.add(bearing)
 
-  // 3 arms with weight pods
-  const armGroup = new THREE.Group()
+  // 3 arms radiating outward in XZ plane
   for (let i = 0; i < 3; i++) {
     const angle = (Math.PI * 2 / 3) * i
-    // Arm bar
+    const dx = Math.sin(angle)
+    const dz = Math.cos(angle)
+
+    // Arm bar — flat box connecting center to pod
     const arm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.008, 0.003, 0.028),
+      new THREE.BoxGeometry(0.006, 0.004, 0.024),
       new THREE.MeshStandardMaterial({ color: 0x3366cc, roughness: 0.3, metalness: 0.4, envMap }),
     )
-    arm.position.set(Math.sin(angle) * 0.022, 0, Math.cos(angle) * 0.022)
+    arm.position.set(dx * 0.020, 0.002, dz * 0.020)
     arm.rotation.y = -angle
     arm.castShadow = true
     armGroup.add(arm)
 
-    // Weight pod at end
+    // Weight pod at end — squat cylinder lying flat
     const pod = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.008, 0.008, 0.006, 8),
+      new THREE.CylinderGeometry(0.007, 0.007, 0.005, 10),
       new THREE.MeshStandardMaterial({ color: 0x2255aa, roughness: 0.25, metalness: 0.5, envMap }),
     )
-    pod.rotation.x = Math.PI / 2
-    pod.position.set(Math.sin(angle) * 0.038, 0, Math.cos(angle) * 0.038)
+    pod.position.set(dx * 0.035, 0.0025, dz * 0.035)
     pod.castShadow = true
     armGroup.add(pod)
   }
-  spinner.add(armGroup)
 
+  spinner.add(armGroup)
   spinner.castShadow = true
   spinner.receiveShadow = true
-  scene.add(spinner)
 
   return { spinner, armGroup }
 }
