@@ -204,9 +204,9 @@ export function Scene() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.3,   // strength
-      0.4,   // radius
-      0.85   // threshold
+      0.15,  // strength
+      0.3,   // radius
+      1.2    // threshold — only emissives bloom, not white surfaces
     )
     composer.addPass(bloomPass)
 
