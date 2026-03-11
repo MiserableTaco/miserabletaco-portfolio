@@ -196,7 +196,7 @@ function processCommand(input: string): TerminalLine[] {
   if (command === 'sudo') {
     if (args.join(' ') === 'rm -rf /') {
       return [
-        { type: 'output' as const, text: '[sudo] password for gerard: ********' },
+        { type: 'output' as const, text: '[sudo] password for g: ********' },
         { type: 'output' as const, text: '' },
         { type: 'output' as const, text: 'Deleting universe...' },
         { type: 'output' as const, text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
@@ -207,7 +207,10 @@ function processCommand(input: string): TerminalLine[] {
     if (args[0] === 'make' && args[1] === 'me' && args[2] === 'a' && args[3] === 'sandwich') {
       return [{ type: 'output' as const, text: 'Okay.' }]
     }
-    return [{ type: 'error', text: 'gerard is not in the sudoers file. This incident will be reported.' }]
+    return [
+      { type: 'error' as const, text: 'g is not in the sudoers file.' },
+      { type: 'error' as const, text: 'This incident will be reported.' },
+    ]
   }
 
   if (command === 'rm' && args[0] === '-rf' && args[1] === '/') {
