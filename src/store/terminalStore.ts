@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useDesktopStore } from '@/store/desktopStore'
+import { useObjectStore } from '@/store/objectStore'
 import { sanitizeInput } from '@/utils/sanitize'
 
 export interface TerminalLine {
@@ -470,6 +471,15 @@ function processCommand(input: string): TerminalLine[] {
       return [{ type: 'error' as const, text: `cat: ${args[0]}: Permission denied` }]
     }
     return [{ type: 'output' as const, text: 'Usage: cat <file>' }]
+  }
+
+  if (command === 'disco') {
+    useObjectStore.getState().activateDisco()
+    return [
+      { type: 'output' as const, text: '> DISCO MODE ACTIVATED' },
+      { type: 'output' as const, text: '  \u266A Kygo \u2014 Firestone \u266A' },
+      { type: 'output' as const, text: '  Duration: 30 seconds' },
+    ]
   }
 
   if (input) {

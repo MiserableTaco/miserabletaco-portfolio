@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { CAMERA, COLORS, DESKTOP_WIDTH, DESKTOP_HEIGHT, FOG, LIGHTING, MAX_PIXEL_RATIO, MONITOR } from '@/utils/constants'
 import { useSceneStore } from '@/store/sceneStore'
 import { useObjectStore } from '@/store/objectStore'
@@ -41,6 +46,17 @@ export function Scene() {
     renderer.setClearColor(COLORS.fog)
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFShadowMap
+    renderer.toneMapping = THREE.AgXToneMapping
+    renderer.toneMappingExposure = 1.2
+
+    // --- Procedural environment map (for metallic reflections) ---
+    const pmremGenerator = new THREE.PMREMGenerator(renderer)
+    pmremGenerator.compileEquirectangularShader()
+    const envScene = new THREE.Scene()
+    envScene.background = new THREE.Color(0x3a3a3a)
+    const envRT = pmremGenerator.fromScene(envScene, 0.04)
+    const envMap = envRT.texture
+    pmremGenerator.dispose()
 
     // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(COLORS.ambient, LIGHTING.ambient)
@@ -58,8 +74,8 @@ export function Scene() {
     ceilingLight.position.set(0.5, 3.5, 1.5)
     ceilingLight.target.position.set(0, 0.3, 0.15)
     ceilingLight.castShadow = true
-    ceilingLight.shadow.mapSize.width = 2048
-    ceilingLight.shadow.mapSize.height = 2048
+    ceilingLight.shadow.mapSize.width = 4096
+    ceilingLight.shadow.mapSize.height = 4096
     ceilingLight.shadow.camera.left = -1.8
     ceilingLight.shadow.camera.right = 1.8
     ceilingLight.shadow.camera.top = 2.0
@@ -71,7 +87,7 @@ export function Scene() {
     scene.add(ceilingLight.target)
 
     // --- Monitor ---
-    const { group: monitor, ledMaterial, screenMesh } = createMonitor()
+    const { group: monitor, ledMaterial, screenMesh } = createMonitor(envMap)
     enableShadows(monitor, true, false)
     scene.add(monitor)
 
@@ -86,19 +102,41 @@ export function Scene() {
     enableShadows(shelf, true, true)
     scene.add(shelf)
 
-    const { group: clockGroup, hourHand, minuteHand, secondHand } = createClock()
+    const { group: clockGroup, hourHand, minuteHand, secondHand } = createClock(envMap)
     scene.add(clockGroup)
 
     // Interactive objects
-    const interactiveObjects = [
-      createCoffeeMug(), createPapers(), createDeskLamp(),
+    const { fan: deskFanGroup, bladesGroup: fanBladesGroup } = createDeskFan(envMap)
+    const { spinner: fidgetSpinnerGroup, armGroup: spinnerArmGroup } = createFidgetSpinner(scene, envMap)
+    const interactiveObjects: THREE.Object3D[] = [
+      createCoffeeMug(), createPapers(), createDeskLamp(envMap),
       createPenCup(), createPlant(), createStapler(),
-      createPhone(), createDrawer(), createKeyboard(),
+      createPhone(), createKeyboard(),
       createWaterBottle(), createFramedPhoto(),
+      deskFanGroup, fidgetSpinnerGroup,
     ]
     for (const obj of interactiveObjects) {
       enableShadows(obj, true, true)
       scene.add(obj)
+    }
+
+    // Water bottle spill particles — pool of 20 small spheres
+    const spillParticles: THREE.Mesh[] = []
+    for (let i = 0; i < 20; i++) {
+      const drop = new THREE.Mesh(
+        new THREE.SphereGeometry(0.004, 4, 4),
+        new THREE.MeshStandardMaterial({
+          color: 0x66aadd,
+          transparent: true,
+          opacity: 0,
+          roughness: 0.1,
+          metalness: 0.2,
+        }),
+      )
+      drop.visible = false
+      drop.userData = { vx: 0, vy: 0, vz: 0, life: 0 }
+      scene.add(drop)
+      spillParticles.push(drop)
     }
 
     // Desk lamp light (needs to be in scene root for proper lighting)
@@ -106,14 +144,36 @@ export function Scene() {
     if (lampObj?.userData.light) scene.add(lampObj.userData.light)
 
     // Decorative objects
-    const decorative = [
+    const stickyNote = createStickyNote()
+    const { board: corkBoard, notes: corkNotes } = createCorkBoard()
+    const decorative: THREE.Object3D[] = [
       createNamePlacard(), createComputerMouse(), createMousePad(),
-      createStickyNote(), createCalendar(),
-      createCorkBoard(), createTapeDispenser(),
+      stickyNote, createCalendar(),
+      corkBoard, createTapeDispenser(envMap),
     ]
     for (const obj of decorative) {
       enableShadows(obj, true, true)
       scene.add(obj)
+    }
+
+    // Add sticky note and cork board notes to interactive objects for raycasting
+    interactiveObjects.push(stickyNote)
+    for (const n of corkNotes) {
+      interactiveObjects.push(n)
+    }
+
+    // Store original Y for disco bounce — desk objects only (wall objects are higher)
+    for (const obj of interactiveObjects) {
+      if (obj.position.y < 1.0) {
+        obj.userData.originalY = obj.position.y
+        obj.userData.bounceOffset = Math.random() * 2
+      }
+    }
+    for (const obj of decorative) {
+      if (obj.position.y < 1.0) {
+        obj.userData.originalY = obj.position.y
+        obj.userData.bounceOffset = Math.random() * 2
+      }
     }
 
     // --- Desktop texture (offscreen canvas → CanvasTexture → monitor screen) ---
@@ -138,6 +198,24 @@ export function Scene() {
       canvasTexture,
     })
 
+    // --- Post-processing ---
+    const composer = new EffectComposer(renderer)
+    composer.addPass(new RenderPass(scene, camera))
+
+    const gtaoPass = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight)
+    gtaoPass.output = GTAOPass.OUTPUT.Denoise
+    composer.addPass(gtaoPass)
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.3,   // strength
+      0.4,   // radius
+      0.85   // threshold
+    )
+    composer.addPass(bloomPass)
+
+    composer.addPass(new OutputPass())
+
     // --- Animation loop ---
     const startTime = performance.now()
     let animationId: number
@@ -157,8 +235,10 @@ export function Scene() {
 
       camera.lookAt(CAMERA.lookAt.x, CAMERA.lookAt.y, CAMERA.lookAt.z)
 
-      // LED pulse (0.5 → 1.0 intensity cycle)
-      ledMaterial.emissiveIntensity = 0.5 + Math.sin(elapsed * 2) * 0.5
+      // LED pulse (0.5 → 1.0 intensity cycle) — skip during disco (rainbow overrides)
+      if (!useObjectStore.getState().discoActive) {
+        ledMaterial.emissiveIntensity = 0.5 + Math.sin(elapsed * 2) * 0.5
+      }
 
       // Clock hands — real time
       const now = new Date()
@@ -217,7 +297,175 @@ export function Scene() {
         }
       }
 
-      renderer.render(scene, camera)
+      // Fan blade spin
+      const fanState = useObjectStore.getState().getCustom('desk_fan')
+      const fanSpinning = fanState.spinning as boolean ?? false
+      let fanSpeed = fanState.speed as number ?? 0
+
+      if (fanSpinning && fanSpeed < 15) {
+        fanSpeed = Math.min(fanSpeed + 0.15, 15)
+        useObjectStore.getState().interact('desk_fan', { spinning: true, speed: fanSpeed })
+      } else if (!fanSpinning && fanSpeed > 0) {
+        fanSpeed = Math.max(fanSpeed - 0.05, 0)
+        useObjectStore.getState().interact('desk_fan', { spinning: false, speed: fanSpeed })
+      }
+
+      if (fanBladesGroup) {
+        fanBladesGroup.rotation.z += fanSpeed * 0.016
+      }
+
+      // Fidget spinner
+      const spinState = useObjectStore.getState().getCustom('fidget_spinner')
+      let spinVelocity = spinState.velocity as number ?? 0
+
+      if (spinVelocity > 0.01) {
+        spinVelocity *= 0.997
+        useObjectStore.getState().interact('fidget_spinner', { velocity: spinVelocity })
+      } else if (spinVelocity > 0) {
+        spinVelocity = 0
+        useObjectStore.getState().interact('fidget_spinner', { velocity: 0 })
+      }
+
+      if (spinnerArmGroup) {
+        spinnerArmGroup.rotation.y += spinVelocity * 0.016
+      }
+
+      // Note zoom-to-read
+      const zoomedId = useObjectStore.getState().zoomedNoteId
+      scene.traverse((obj) => {
+        if (obj.userData?.type === 'postit') {
+          const isZoomed = obj.userData.id === zoomedId
+          const targetScale = isZoomed ? 6 : 1
+          const targetZ = isZoomed ? camera.position.z - 0.8 : obj.userData.originalZ
+          const targetY = isZoomed ? camera.position.y : obj.userData.originalY
+          const targetX = isZoomed ? camera.position.x : obj.userData.originalX
+
+          obj.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.12)
+
+          // Only move world position for non-parented notes; parented notes need world position math
+          if (!obj.parent || obj.parent === scene) {
+            obj.position.x += (targetX - obj.position.x) * 0.12
+            obj.position.y += (targetY - obj.position.y) * 0.12
+            obj.position.z += (targetZ - obj.position.z) * 0.12
+          }
+        }
+      })
+
+      // Water bottle spill particles
+      const bottleState = useObjectStore.getState().getCustom('water_bottle')
+      const spillTime = bottleState.spillTime as number ?? 0
+
+      if (spillTime > 0 && performance.now() - spillTime < 3000) {
+        const spillElapsed = (performance.now() - spillTime) / 1000
+
+        spillParticles.forEach((drop, i) => {
+          const spawnDelay = 0.05 * i // stagger spawns
+          if (spillElapsed < spawnDelay) return
+
+          if (!drop.visible) {
+            // Initialize particle at bottle mouth position
+            drop.visible = true
+            drop.position.set(
+              -0.32 + (Math.random() - 0.5) * 0.03,
+              0.40,
+              0.35 + (Math.random() - 0.5) * 0.03,
+            )
+            drop.scale.set(1, 1, 1)
+            drop.userData.vx = (Math.random() - 0.5) * 0.6
+            drop.userData.vy = Math.random() * 1.0 + 0.3
+            drop.userData.vz = (Math.random() - 0.5) * 0.6
+            drop.userData.life = 1.0
+            const mat = drop.material as THREE.MeshStandardMaterial
+            mat.opacity = 0.7
+          }
+
+          // Physics update
+          drop.userData.vy -= 3.5 * 0.016 // gravity
+          drop.position.x += drop.userData.vx * 0.016
+          drop.position.y += drop.userData.vy * 0.016
+          drop.position.z += drop.userData.vz * 0.016
+
+          // Desk surface collision (desk top is at y ~ 0.305)
+          if (drop.position.y <= 0.31) {
+            drop.position.y = 0.31
+            drop.userData.vy = 0
+            drop.userData.vx *= 0.7
+            drop.userData.vz *= 0.7
+            drop.scale.set(1.8, 0.2, 1.8) // flatten on impact
+          }
+
+          // Fade out
+          drop.userData.life -= 0.012
+          const mat = drop.material as THREE.MeshStandardMaterial
+          mat.opacity = Math.max(0, drop.userData.life * 0.7)
+
+          if (drop.userData.life <= 0) {
+            drop.visible = false
+          }
+        })
+      } else if (spillTime > 0 && performance.now() - spillTime >= 3000) {
+        // Reset all particles
+        spillParticles.forEach((d) => {
+          d.visible = false
+          d.scale.set(1, 1, 1)
+          const mat = d.material as THREE.MeshStandardMaterial
+          mat.opacity = 0
+        })
+        useObjectStore.getState().interact('water_bottle', { spillTime: 0 })
+      }
+
+      // Disco mode — rainbow lights, object bounce, auto-spin
+      const discoStore = useObjectStore.getState()
+      if (discoStore.discoActive) {
+        const dt = (performance.now() - discoStore.discoStartTime) / 1000
+
+        if (dt > 32) {
+          // End disco
+          useObjectStore.setState({ discoActive: false, discoStartTime: 0 })
+          // Reset ceiling light to original color
+          ceilingLight.color.setHex(0xfff5e6)
+          ledMaterial.emissive.setHex(0x88bbff)
+          ledMaterial.emissiveIntensity = 1.0
+          // Reset object positions
+          scene.traverse((obj) => {
+            if (obj.userData?.originalY != null && obj.position.y < 1.0) {
+              obj.position.y = obj.userData.originalY
+            }
+          })
+        } else {
+          const fadeOut = dt > 30 ? 1 - (dt - 30) / 2 : 1
+
+          // Rainbow ceiling light
+          const hue = (dt * 0.5) % 1
+          ceilingLight.color.setHSL(hue, 0.8 * fadeOut, 0.5)
+
+          // LED matches rainbow
+          ledMaterial.emissive.setHSL(hue, 0.8, 0.5 * fadeOut)
+          ledMaterial.emissiveIntensity = 1.0
+
+          // Bounce desk objects
+          scene.traverse((obj) => {
+            if (obj.userData?.originalY != null && obj.userData?.bounceOffset != null) {
+              const bounce = Math.sin((dt + obj.userData.bounceOffset) * 6) * 0.008 * fadeOut
+              obj.position.y = obj.userData.originalY + bounce
+            }
+          })
+
+          // Auto-spin fan
+          const fanState = discoStore.getCustom('desk_fan')
+          if (!(fanState.spinning as boolean)) {
+            discoStore.interact('desk_fan', { spinning: true, speed: (fanState.speed as number) ?? 0 })
+          }
+
+          // Auto-spin fidget spinner
+          const spinState = discoStore.getCustom('fidget_spinner')
+          if (((spinState.velocity as number) ?? 0) < 10) {
+            discoStore.interact('fidget_spinner', { velocity: 12 })
+          }
+        }
+      }
+
+      composer.render()
     }
 
     animate()
@@ -228,6 +476,7 @@ export function Scene() {
       camera.updateProjectionMatrix()
       renderer.setSize(window.innerWidth, window.innerHeight)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO))
+      composer.setSize(window.innerWidth, window.innerHeight)
     }
 
     window.addEventListener('resize', handleResize)
@@ -250,6 +499,8 @@ export function Scene() {
         }
       })
       canvasTexture.dispose()
+      envRT.dispose()
+      composer.dispose()
       renderer.dispose()
     }
   }, [])
@@ -268,7 +519,7 @@ function enableShadows(obj: THREE.Object3D, cast: boolean, receive: boolean) {
 }
 
 /** Build a chunky low-poly CRT monitor with multi-material faces for 3D readability. */
-function createMonitor() {
+function createMonitor(envMap: THREE.Texture) {
   const group = new THREE.Group()
   group.position.set(MONITOR.position.x, MONITOR.position.y, MONITOR.position.z)
   group.rotation.x = MONITOR.tilt
@@ -338,13 +589,13 @@ function createMonitor() {
   // Brand plate — small lighter strip below screen on front face
   const brandPlate = new THREE.Mesh(
     new THREE.BoxGeometry(0.16, 0.02, 0.004),
-    new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.5, metalness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.4, metalness: 0.3, envMap }),
   )
   brandPlate.position.set(0, -(H / 2 - 0.04), frontZ + 0.002)
   group.add(brandPlate)
 
   // Adjustment knobs — row of small cylinders on bottom-right front face
-  const knobMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.4, metalness: 0.3 })
+  const knobMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.25, metalness: 0.5, envMap })
   for (let i = 0; i < 4; i++) {
     const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 8), knobMat)
     knob.rotation.x = Math.PI / 2
@@ -462,7 +713,7 @@ function createShelf() {
 
 // ── Clock ───────────────────────────────────────────────────────────
 
-function createClock() {
+function createClock(envMap: THREE.Texture) {
   const group = new THREE.Group()
   group.position.set(-1.05, 1.88, -0.36)
 
@@ -477,7 +728,7 @@ function createClock() {
   // Rim
   const rim = new THREE.Mesh(
     new THREE.RingGeometry(0.095, 0.105, 24),
-    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6 }),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.3, metalness: 0.4, envMap }),
   )
   rim.position.z = 0.002
   group.add(rim)
@@ -586,12 +837,12 @@ function createPapers(): THREE.Group {
   return papers
 }
 
-function createDeskLamp(): THREE.Group {
+function createDeskLamp(envMap: THREE.Texture): THREE.Group {
   const lamp = new THREE.Group()
   lamp.position.set(0.75, 0.305, 0.18)
   lamp.userData = { interactive: true, id: 'desk_lamp' }
 
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.5, metalness: 0.3 })
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.25, metalness: 0.5, envMap })
 
   // Base
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.015, 10), metalMat)
@@ -683,7 +934,7 @@ function createStapler(): THREE.Group {
 
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(0.07, 0.018, 0.03),
-    new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.5 }),
+    new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.4, metalness: 0.15 }),
   )
   stapler.add(body)
 
@@ -730,29 +981,6 @@ function createPhone(): THREE.Group {
   return phone
 }
 
-function createDrawer(): THREE.Group {
-  const drawer = new THREE.Group()
-  drawer.position.set(0.55, 0.16, 0.52)
-  drawer.userData = { interactive: true, id: 'drawer' }
-
-  // Front face
-  const front = new THREE.Mesh(
-    new THREE.BoxGeometry(0.35, 0.12, 0.02),
-    new THREE.MeshStandardMaterial({ color: 0x383838, roughness: 0.8 }),
-  )
-  drawer.add(front)
-
-  // Handle
-  const handle = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.008, 0.012),
-    new THREE.MeshStandardMaterial({ color: 0x808080, metalness: 0.7, roughness: 0.3 }),
-  )
-  handle.position.z = 0.015
-  drawer.add(handle)
-
-  return drawer
-}
-
 function createKeyboard(): THREE.Group {
   const kb = new THREE.Group()
   kb.position.set(0, 0.31, 0.40)
@@ -778,6 +1006,78 @@ function createKeyboard(): THREE.Group {
   kb.userData.keys = keys
 
   return kb
+}
+
+function createDeskFan(envMap: THREE.Texture | null): { fan: THREE.Group; bladesGroup: THREE.Group } {
+  const fan = new THREE.Group()
+  fan.position.set(-0.55, 0.31, 0.50)
+  fan.userData = { interactive: true, id: 'desk_fan' }
+
+  // Base — flat cylinder
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.045, 0.015, 12),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.4, envMap })
+  )
+  base.castShadow = true
+  base.receiveShadow = true
+  fan.add(base)
+
+  // Motor housing
+  const motor = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.018, 0.025, 8),
+    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.3, envMap })
+  )
+  motor.rotation.x = Math.PI / 2
+  motor.position.set(0, 0.06, -0.01)
+  motor.castShadow = true
+  fan.add(motor)
+
+  // Cage ring
+  const cage = new THREE.Group()
+  cage.position.set(0, 0.06, 0.01)
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.045, 0.003, 6, 24),
+    new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5, envMap })
+  )
+  cage.add(ring)
+
+  // 8 cage bars
+  for (let i = 0; i < 8; i++) {
+    const angle = (Math.PI * 2 / 8) * i
+    const bar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.001, 0.001, 0.09, 4),
+      new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5 })
+    )
+    bar.position.set(Math.cos(angle) * 0.045, Math.sin(angle) * 0.045, 0)
+    bar.rotation.z = angle + Math.PI / 2
+    cage.add(bar)
+  }
+  fan.add(cage)
+
+  // Blades — 3 planes that spin
+  const bladesGroup = new THREE.Group()
+  bladesGroup.position.set(0, 0.06, 0.012)
+  for (let i = 0; i < 3; i++) {
+    const blade = new THREE.Mesh(
+      new THREE.BoxGeometry(0.035, 0.008, 0.002),
+      new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6, side: THREE.DoubleSide })
+    )
+    blade.rotation.z = (Math.PI * 2 / 3) * i
+    blade.position.set(
+      Math.cos((Math.PI * 2 / 3) * i) * 0.018,
+      Math.sin((Math.PI * 2 / 3) * i) * 0.018,
+      0
+    )
+    blade.castShadow = true
+    bladesGroup.add(blade)
+  }
+  fan.add(bladesGroup)
+
+  fan.castShadow = true
+  fan.receiveShadow = true
+
+  return { fan, bladesGroup }
 }
 
 // ── Decorative objects ──────────────────────────────────────────────
@@ -860,6 +1160,14 @@ function createStickyNote(): THREE.Mesh {
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }),
   )
   note.position.set(1.08, 1.45, -0.36)
+  note.userData = {
+    interactive: true,
+    id: 'sticky_note',
+    type: 'postit',
+    originalX: 1.08,
+    originalY: 1.45,
+    originalZ: -0.36,
+  }
   return note
 }
 
@@ -943,7 +1251,7 @@ function createFramedPhoto(): THREE.Group {
 
 // ── Additional decorative objects ───────────────────────────────────
 
-function createCorkBoard(): THREE.Group {
+function createCorkBoard(): { board: THREE.Group; notes: THREE.Mesh[] } {
   const board = new THREE.Group()
   board.position.set(-1.05, 1.65, -0.36)
 
@@ -967,22 +1275,61 @@ function createCorkBoard(): THREE.Group {
     board.add(piece)
   }
 
-  // Colored pins
-  const pinColors = [0xee3333, 0x33aa33, 0x3355ee, 0xeecc22]
-  const pinPositions = [[-0.05, 0.03], [0.04, 0.04], [-0.03, -0.03], [0.06, -0.02]]
-  for (let i = 0; i < 4; i++) {
-    const pin = new THREE.Mesh(
-      new THREE.SphereGeometry(0.006, 6, 6),
-      new THREE.MeshStandardMaterial({ color: pinColors[i] }),
+  // Sticky notes (replace pins)
+  const noteColors = ['#c8c830', '#ff9999', '#99ccff', '#99ff99', '#ffcc66']
+  const noteTexts: [string, string][] = [
+    ['TODO:', 'ship it'],
+    ['BUG:', '???'],
+    ['github.com/', 'MiserableTaco'],
+    ['IDEA:', 'more coffee'],
+    [':)', ''],
+  ]
+  const notePositions = [
+    { x: -0.06, y: 0.04, rot: -0.08 },
+    { x: 0.02, y: 0.05, rot: 0.12 },
+    { x: -0.02, y: -0.02, rot: -0.05 },
+    { x: 0.06, y: 0.00, rot: 0.08 },
+    { x: 0.05, y: -0.05, rot: -0.15 },
+  ]
+
+  const notes: THREE.Mesh[] = []
+  for (let i = 0; i < 5; i++) {
+    const noteCanvas = document.createElement('canvas')
+    noteCanvas.width = 128
+    noteCanvas.height = 128
+    const nctx = noteCanvas.getContext('2d')!
+    nctx.fillStyle = noteColors[i]
+    nctx.fillRect(0, 0, 128, 128)
+    nctx.fillStyle = '#222222'
+    nctx.font = 'bold 16px Courier New'
+    nctx.fillText(noteTexts[i][0], 8, 30)
+    nctx.font = '14px Courier New'
+    nctx.fillText(noteTexts[i][1], 8, 52)
+
+    const noteTex = new THREE.CanvasTexture(noteCanvas)
+    const note = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.05, 0.05),
+      new THREE.MeshBasicMaterial({ map: noteTex, side: THREE.DoubleSide }),
     )
-    pin.position.set(pinPositions[i][0], pinPositions[i][1], 0.008)
-    board.add(pin)
+    note.position.set(notePositions[i].x, notePositions[i].y, 0.008)
+    note.rotation.z = notePositions[i].rot
+    note.userData = {
+      interactive: true,
+      id: `postit_${i}`,
+      type: 'postit',
+      originalX: board.position.x + notePositions[i].x,
+      originalY: board.position.y + notePositions[i].y,
+      originalZ: board.position.z + 0.008,
+      url: i === 2 ? 'https://github.com/MiserableTaco' : undefined,
+    }
+    board.add(note)
+    notes.push(note)
   }
 
-  return board
+  return { board, notes }
 }
 
-function createTapeDispenser(): THREE.Group {
+function createTapeDispenser(envMap: THREE.Texture): THREE.Group {
   const tape = new THREE.Group()
   tape.position.set(0.15, 0.31, 0.52)
 
@@ -1005,10 +1352,59 @@ function createTapeDispenser(): THREE.Group {
   // Cutting edge
   const edge = new THREE.Mesh(
     new THREE.BoxGeometry(0.002, 0.015, 0.028),
-    new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.6, roughness: 0.3 }),
+    new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.2, envMap }),
   )
   edge.position.set(0.032, 0.008, 0)
   tape.add(edge)
 
   return tape
+}
+
+// ── Fidget Spinner ──────────────────────────────────────────────────
+
+function createFidgetSpinner(scene: THREE.Scene, envMap: THREE.Texture | null) {
+  const spinner = new THREE.Group()
+  spinner.position.set(0.20, 0.315, 0.52)
+  spinner.userData = { interactive: true, id: 'fidget_spinner' }
+
+  // Center bearing
+  const bearing = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.012, 0.008, 12),
+    new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.15, metalness: 0.8, envMap }),
+  )
+  bearing.rotation.x = Math.PI / 2
+  bearing.castShadow = true
+  spinner.add(bearing)
+
+  // 3 arms with weight pods
+  const armGroup = new THREE.Group()
+  for (let i = 0; i < 3; i++) {
+    const angle = (Math.PI * 2 / 3) * i
+    // Arm bar
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.008, 0.003, 0.028),
+      new THREE.MeshStandardMaterial({ color: 0x3366cc, roughness: 0.3, metalness: 0.4, envMap }),
+    )
+    arm.position.set(Math.sin(angle) * 0.022, 0, Math.cos(angle) * 0.022)
+    arm.rotation.y = -angle
+    arm.castShadow = true
+    armGroup.add(arm)
+
+    // Weight pod at end
+    const pod = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.008, 0.008, 0.006, 8),
+      new THREE.MeshStandardMaterial({ color: 0x2255aa, roughness: 0.25, metalness: 0.5, envMap }),
+    )
+    pod.rotation.x = Math.PI / 2
+    pod.position.set(Math.sin(angle) * 0.038, 0, Math.cos(angle) * 0.038)
+    pod.castShadow = true
+    armGroup.add(pod)
+  }
+  spinner.add(armGroup)
+
+  spinner.castShadow = true
+  spinner.receiveShadow = true
+  scene.add(spinner)
+
+  return { spinner, armGroup }
 }

@@ -20,10 +20,17 @@ const OBJECT_SOUNDS: Record<string, string> = {
   plant: 'leaf',
   stapler: 'stapler',
   phone: 'phone',
-  drawer: 'drawer',
   keyboard: 'keyboard',
   water_bottle: 'mug',
   framed_photo: 'snap',
+  desk_fan: 'fan',
+  fidget_spinner: 'snap',
+  postit_0: 'snap',
+  postit_1: 'snap',
+  postit_2: 'snap',
+  postit_3: 'snap',
+  postit_4: 'snap',
+  sticky_note: 'snap',
 }
 
 export function useRaycaster() {
@@ -73,11 +80,11 @@ export function useRaycaster() {
 
       setMouseFromEvent(event)
 
-      // Gather interactive 3D objects
+      // Gather interactive 3D objects (recurse to find nested interactive items like cork board notes)
       const interactiveObjs: THREE.Object3D[] = []
-      for (const child of sceneRef.children) {
+      sceneRef.traverse((child) => {
         if (child.userData.interactive) interactiveObjs.push(child)
-      }
+      })
 
       // Raycast against monitor screen + all interactive objects
       const hits = raycaster.intersectObjects([screen, ...interactiveObjs], true)
@@ -291,6 +298,13 @@ export function useRaycaster() {
       const id = obj.userData.id as string
       const oStore = useObjectStore.getState()
 
+      // Dismiss zoomed note when clicking any non-postit object
+      const zStore = useObjectStore.getState()
+      if (zStore.zoomedNoteId && !id.startsWith('postit_') && id !== 'sticky_note') {
+        zStore.setZoomedNote(null)
+        return // dismiss note, don't process click
+      }
+
       // Play sound
       const sound = OBJECT_SOUNDS[id]
       if (sound) playSound(sound)
@@ -363,13 +377,6 @@ export function useRaycaster() {
           }
           break
         }
-        case 'drawer': {
-          const custom = oStore.getCustom(id)
-          const isOpen = custom.open === true
-          obj.position.z = isOpen ? 0.55 : 0.72
-          oStore.interact(id, { open: !isOpen })
-          return
-        }
         case 'keyboard':
           // Trigger key glow via objectStore timestamp
           oStore.interact(id, { keyTime: Date.now() })
@@ -385,12 +392,46 @@ export function useRaycaster() {
           obj.rotation.z = 0.5
           setTimeout(() => { obj.rotation.z = 0.25 }, 200)
           setTimeout(() => { obj.rotation.z = 0 }, 500)
-          break
+          // Trigger spill particle effect
+          const currentCustom = oStore.getCustom('water_bottle')
+          oStore.interact('water_bottle', { ...currentCustom, spillTime: performance.now() })
+          return // skip default interact call — we already called interact above
         }
         case 'framed_photo':
           // Flip to show back (toggle between 0 and PI)
           obj.rotation.y = obj.rotation.y < Math.PI / 2 ? Math.PI : 0
           break
+        case 'desk_fan': {
+          const state = oStore.getCustom('desk_fan')
+          const spinning = !(state.spinning as boolean ?? false)
+          oStore.interact('desk_fan', { spinning, speed: state.speed as number ?? 0 })
+          return
+        }
+        case 'fidget_spinner': {
+          const state = oStore.getCustom('fidget_spinner')
+          const currentVelocity = state.velocity as number ?? 0
+          oStore.interact('fidget_spinner', { velocity: currentVelocity + 8 })
+          break
+        }
+        case 'postit_0':
+        case 'postit_1':
+        case 'postit_2':
+        case 'postit_3':
+        case 'postit_4':
+        case 'sticky_note': {
+          if (zStore.zoomedNoteId === id) {
+            // Already zoomed — check for URL
+            const url = obj.userData?.url as string | undefined
+            if (url) {
+              window.open(url, '_blank', 'noopener,noreferrer')
+            } else {
+              zStore.setZoomedNote(null) // dismiss
+            }
+          } else {
+            zStore.setZoomedNote(id) // zoom in
+          }
+          break
+        }
       }
 
       oStore.interact(id)

@@ -110,6 +110,27 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // Konami code listener
+  useEffect(() => {
+    const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA']
+    let konamiIndex = 0
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code === KONAMI[konamiIndex]) {
+        konamiIndex++
+        if (konamiIndex === KONAMI.length) {
+          useObjectStore.getState().activateDisco()
+          konamiIndex = 0
+        }
+      } else {
+        konamiIndex = 0
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   useRaycaster()
 
   if (isMobile) return <MobileFallback />
