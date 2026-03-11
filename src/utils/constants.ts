@@ -60,4 +60,4 @@ export const DESKTOP = {
 
 // Performance
 export const TARGET_FPS = 60
-export const MAX_PIXEL_RATIO = 2
+export const MAX_PIXEL_RATIO = 1.5

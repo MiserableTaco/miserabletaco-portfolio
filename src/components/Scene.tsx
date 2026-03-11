@@ -1,10 +1,5 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
-// import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { CAMERA, COLORS, DESKTOP_WIDTH, DESKTOP_HEIGHT, FOG, LIGHTING, MAX_PIXEL_RATIO, MONITOR } from '@/utils/constants'
 import { useSceneStore } from '@/store/sceneStore'
 import { useObjectStore } from '@/store/objectStore'
@@ -74,8 +69,8 @@ export function Scene() {
     ceilingLight.position.set(0.5, 3.5, 1.5)
     ceilingLight.target.position.set(0, 0.3, 0.15)
     ceilingLight.castShadow = true
-    ceilingLight.shadow.mapSize.width = 2048
-    ceilingLight.shadow.mapSize.height = 2048
+    ceilingLight.shadow.mapSize.width = 1024
+    ceilingLight.shadow.mapSize.height = 1024
     ceilingLight.shadow.camera.left = -1.8
     ceilingLight.shadow.camera.right = 1.8
     ceilingLight.shadow.camera.top = 2.0
@@ -199,19 +194,6 @@ export function Scene() {
       canvasTexture,
     })
 
-    // --- Post-processing ---
-    const composer = new EffectComposer(renderer)
-    composer.addPass(new RenderPass(scene, camera))
-
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.15,  // strength
-      0.3,   // radius
-      1.2    // threshold — only emissives bloom, not white surfaces
-    )
-    composer.addPass(bloomPass)
-
-    composer.addPass(new OutputPass())
 
     // --- Animation loop ---
     const startTime = performance.now()
@@ -457,7 +439,7 @@ export function Scene() {
         }
       }
 
-      composer.render()
+      renderer.render(scene, camera)
     }
 
     animate()
@@ -468,7 +450,6 @@ export function Scene() {
       camera.updateProjectionMatrix()
       renderer.setSize(window.innerWidth, window.innerHeight)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO))
-      composer.setSize(window.innerWidth, window.innerHeight)
     }
 
     window.addEventListener('resize', handleResize)
@@ -492,7 +473,6 @@ export function Scene() {
       })
       canvasTexture.dispose()
       envRT.dispose()
-      composer.dispose()
       renderer.dispose()
     }
   }, [])
