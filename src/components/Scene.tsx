@@ -33,44 +33,27 @@ export function Scene() {
     // --- Renderer ---
     const renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: false,
       alpha: false,
     })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO))
     renderer.setClearColor(COLORS.fog)
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFShadowMap
+    renderer.shadowMap.type = THREE.BasicShadowMap
     renderer.toneMapping = THREE.AgXToneMapping
     renderer.toneMappingExposure = 1.2
-
-    // --- Procedural environment map (for metallic reflections) ---
-    const pmremGenerator = new THREE.PMREMGenerator(renderer)
-    pmremGenerator.compileEquirectangularShader()
-    const envScene = new THREE.Scene()
-    envScene.background = new THREE.Color(0x3a3a3a)
-    const envRT = pmremGenerator.fromScene(envScene, 0.04)
-    const envMap = envRT.texture
-    pmremGenerator.dispose()
 
     // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(COLORS.ambient, LIGHTING.ambient)
     scene.add(ambientLight)
 
-    const monitorGlow = new THREE.PointLight(
-      COLORS.monitor_glow,
-      LIGHTING.monitor_glow,
-      LIGHTING.monitor_glow_range,
-    )
-    monitorGlow.position.set(0, 1.0, 0.5)
-    scene.add(monitorGlow)
-
     const ceilingLight = new THREE.DirectionalLight(COLORS.ceiling, LIGHTING.ceiling)
     ceilingLight.position.set(0.5, 3.5, 1.5)
     ceilingLight.target.position.set(0, 0.3, 0.15)
     ceilingLight.castShadow = true
-    ceilingLight.shadow.mapSize.width = 1024
-    ceilingLight.shadow.mapSize.height = 1024
+    ceilingLight.shadow.mapSize.width = 512
+    ceilingLight.shadow.mapSize.height = 512
     ceilingLight.shadow.camera.left = -1.8
     ceilingLight.shadow.camera.right = 1.8
     ceilingLight.shadow.camera.top = 2.0
@@ -82,7 +65,7 @@ export function Scene() {
     scene.add(ceilingLight.target)
 
     // --- Monitor ---
-    const { group: monitor, ledMaterial, screenMesh } = createMonitor(envMap)
+    const { group: monitor, ledMaterial, screenMesh } = createMonitor()
     enableShadows(monitor, true, false)
     scene.add(monitor)
 
@@ -97,14 +80,14 @@ export function Scene() {
     enableShadows(shelf, true, true)
     scene.add(shelf)
 
-    const { group: clockGroup, hourHand, minuteHand, secondHand } = createClock(envMap)
+    const { group: clockGroup, hourHand, minuteHand, secondHand } = createClock()
     scene.add(clockGroup)
 
     // Interactive objects
-    const { fan: deskFanGroup, bladesGroup: fanBladesGroup } = createDeskFan(envMap)
-    const { spinner: fidgetSpinnerGroup, armGroup: spinnerArmGroup } = createFidgetSpinner(scene, envMap)
+    const { fan: deskFanGroup, bladesGroup: fanBladesGroup } = createDeskFan()
+    const { spinner: fidgetSpinnerGroup, armGroup: spinnerArmGroup } = createFidgetSpinner()
     const interactiveObjects: THREE.Object3D[] = [
-      createCoffeeMug(), createPapers(), createDeskLamp(envMap),
+      createCoffeeMug(), createPapers(), createDeskLamp(),
       createPenCup(), createPlant(), createStapler(),
       createPhone(), createKeyboard(),
       createWaterBottle(), createFramedPhoto(),
@@ -144,7 +127,7 @@ export function Scene() {
     const decorative: THREE.Object3D[] = [
       createNamePlacard(), createComputerMouse(), createMousePad(),
       stickyNote, createCalendar(),
-      corkBoard, createTapeDispenser(envMap),
+      corkBoard, createTapeDispenser(),
     ]
     for (const obj of decorative) {
       enableShadows(obj, true, true)
@@ -472,7 +455,6 @@ export function Scene() {
         }
       })
       canvasTexture.dispose()
-      envRT.dispose()
       renderer.dispose()
     }
   }, [])
@@ -491,7 +473,7 @@ function enableShadows(obj: THREE.Object3D, cast: boolean, receive: boolean) {
 }
 
 /** Build a chunky low-poly CRT monitor with multi-material faces for 3D readability. */
-function createMonitor(envMap: THREE.Texture) {
+function createMonitor() {
   const group = new THREE.Group()
   group.position.set(MONITOR.position.x, MONITOR.position.y, MONITOR.position.z)
   group.rotation.x = MONITOR.tilt
@@ -561,13 +543,13 @@ function createMonitor(envMap: THREE.Texture) {
   // Brand plate — small lighter strip below screen on front face
   const brandPlate = new THREE.Mesh(
     new THREE.BoxGeometry(0.16, 0.02, 0.004),
-    new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.4, metalness: 0.3, envMap }),
+    new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.4, metalness: 0.3 }),
   )
   brandPlate.position.set(0, -(H / 2 - 0.04), frontZ + 0.002)
   group.add(brandPlate)
 
   // Adjustment knobs — row of small cylinders on bottom-right front face
-  const knobMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.25, metalness: 0.5, envMap })
+  const knobMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.25, metalness: 0.5 })
   for (let i = 0; i < 4; i++) {
     const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 8), knobMat)
     knob.rotation.x = Math.PI / 2
@@ -685,7 +667,7 @@ function createShelf() {
 
 // ── Clock ───────────────────────────────────────────────────────────
 
-function createClock(envMap: THREE.Texture) {
+function createClock() {
   const group = new THREE.Group()
   group.position.set(-1.05, 1.88, -0.36)
 
@@ -700,7 +682,7 @@ function createClock(envMap: THREE.Texture) {
   // Rim
   const rim = new THREE.Mesh(
     new THREE.RingGeometry(0.095, 0.105, 24),
-    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.3, metalness: 0.4, envMap }),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.3, metalness: 0.4 }),
   )
   rim.position.z = 0.002
   group.add(rim)
@@ -809,12 +791,12 @@ function createPapers(): THREE.Group {
   return papers
 }
 
-function createDeskLamp(envMap: THREE.Texture): THREE.Group {
+function createDeskLamp(): THREE.Group {
   const lamp = new THREE.Group()
   lamp.position.set(0.75, 0.305, 0.18)
   lamp.userData = { interactive: true, id: 'desk_lamp' }
 
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.25, metalness: 0.5, envMap })
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.25, metalness: 0.5 })
 
   // Base
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.015, 10), metalMat)
@@ -980,13 +962,13 @@ function createKeyboard(): THREE.Group {
   return kb
 }
 
-function createDeskFan(envMap: THREE.Texture | null): { fan: THREE.Group; bladesGroup: THREE.Group } {
+function createDeskFan(): { fan: THREE.Group; bladesGroup: THREE.Group } {
   const fan = new THREE.Group()
   fan.position.set(-0.85, 0.31, 0.40)
   fan.userData = { interactive: true, id: 'desk_fan' }
 
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.4, envMap })
-  const cageMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5, envMap })
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.4 })
+  const cageMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.5 })
 
   // Base — flat cylinder sitting on desk
   const base = new THREE.Mesh(
@@ -1014,7 +996,7 @@ function createDeskFan(envMap: THREE.Texture | null): { fan: THREE.Group; blades
   // Motor housing — behind the cage
   const motor = new THREE.Mesh(
     new THREE.CylinderGeometry(0.016, 0.016, 0.020, 8),
-    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.3, envMap }),
+    new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.3 }),
   )
   motor.rotation.x = Math.PI / 2
   motor.position.z = -0.010
@@ -1315,7 +1297,7 @@ function createCorkBoard(): { board: THREE.Group; notes: THREE.Mesh[] } {
   return { board, notes }
 }
 
-function createTapeDispenser(envMap: THREE.Texture): THREE.Group {
+function createTapeDispenser(): THREE.Group {
   const tape = new THREE.Group()
   tape.position.set(0.15, 0.31, 0.52)
 
@@ -1338,7 +1320,7 @@ function createTapeDispenser(envMap: THREE.Texture): THREE.Group {
   // Cutting edge
   const edge = new THREE.Mesh(
     new THREE.BoxGeometry(0.002, 0.015, 0.028),
-    new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.2, envMap }),
+    new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.2 }),
   )
   edge.position.set(0.032, 0.008, 0)
   tape.add(edge)
@@ -1348,7 +1330,7 @@ function createTapeDispenser(envMap: THREE.Texture): THREE.Group {
 
 // ── Fidget Spinner ──────────────────────────────────────────────────
 
-function createFidgetSpinner(_scene: THREE.Scene, envMap: THREE.Texture | null) {
+function createFidgetSpinner() {
   const spinner = new THREE.Group()
   spinner.position.set(0.40, 0.315, 0.52)
   spinner.userData = { interactive: true, id: 'fidget_spinner' }
@@ -1359,7 +1341,7 @@ function createFidgetSpinner(_scene: THREE.Scene, envMap: THREE.Texture | null) 
   // Center bearing — flat disc on desk
   const bearing = new THREE.Mesh(
     new THREE.CylinderGeometry(0.010, 0.010, 0.005, 16),
-    new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.15, metalness: 0.8, envMap }),
+    new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.15, metalness: 0.8 }),
   )
   bearing.position.y = 0.0025
   bearing.castShadow = true
@@ -1374,7 +1356,7 @@ function createFidgetSpinner(_scene: THREE.Scene, envMap: THREE.Texture | null) 
     // Arm bar — flat box connecting center to pod
     const arm = new THREE.Mesh(
       new THREE.BoxGeometry(0.006, 0.004, 0.024),
-      new THREE.MeshStandardMaterial({ color: 0x3366cc, roughness: 0.3, metalness: 0.4, envMap }),
+      new THREE.MeshStandardMaterial({ color: 0x3366cc, roughness: 0.3, metalness: 0.4 }),
     )
     arm.position.set(dx * 0.020, 0.002, dz * 0.020)
     arm.rotation.y = -angle
@@ -1384,7 +1366,7 @@ function createFidgetSpinner(_scene: THREE.Scene, envMap: THREE.Texture | null) 
     // Weight pod at end — squat cylinder lying flat
     const pod = new THREE.Mesh(
       new THREE.CylinderGeometry(0.007, 0.007, 0.005, 10),
-      new THREE.MeshStandardMaterial({ color: 0x2255aa, roughness: 0.25, metalness: 0.5, envMap }),
+      new THREE.MeshStandardMaterial({ color: 0x2255aa, roughness: 0.25, metalness: 0.5 }),
     )
     pod.position.set(dx * 0.035, 0.0025, dz * 0.035)
     pod.castShadow = true
