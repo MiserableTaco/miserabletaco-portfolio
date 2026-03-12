@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useDesktopStore } from '@/store/desktopStore'
 import { sanitizeInput } from '@/utils/sanitize'
+import { processEasterEgg } from '@/store/terminalEasterEggs'
 
 export interface TerminalLine {
   type: 'command' | 'output' | 'error'
@@ -22,10 +23,6 @@ interface TerminalState {
 
 const MAX_LINES = 200
 const MAX_HISTORY = 50
-
-// Lazy-loaded easter eggs module — only fetched on first non-core command
-let easterEggsModule: typeof import('@/store/terminalEasterEggs') | null = null
-let easterEggsLoading = false
 
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   lines: [
@@ -124,6 +121,7 @@ function processCommand(input: string): TerminalLine[] {
       { type: 'output', text: '  exit       Close terminal window' },
       { type: 'output', text: '' },
       { type: 'output', text: 'EXTRAS:' },
+      { type: 'output', text: '  disco      Start disco mode (stop to end)' },
       { type: 'output', text: '  Try: whoami, ls, fortune, tree, cowsay, neofetch' },
       { type: 'output', text: '  More: brew, sl, npm install, uptime, joke, weather' },
       { type: 'output', text: '' },
@@ -195,15 +193,9 @@ function processCommand(input: string): TerminalLine[] {
     }))
   }
 
-  // Try easter eggs (lazy-loaded module)
-  if (easterEggsModule) {
-    const result = easterEggsModule.processEasterEgg(command, args, input)
-    if (result) return result
-  } else if (!easterEggsLoading && input) {
-    // First non-core command triggers the lazy load for next time
-    easterEggsLoading = true
-    import('@/store/terminalEasterEggs').then((m) => { easterEggsModule = m })
-  }
+  // Easter egg commands
+  const easterResult = processEasterEgg(command, args, input)
+  if (easterResult) return easterResult
 
   if (input) {
     return [
