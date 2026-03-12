@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { sanitizeInput } from '@/utils/sanitize'
 
 const LINKS = [
   { label: 'TRUST — AcadCert + VeriCert', url: 'https://acadcert.com' },
@@ -34,8 +35,9 @@ export function MobileFallback() {
   }, [lines])
 
   const execute = () => {
-    const cmd = input.trim().toLowerCase()
-    setLines(prev => [...prev, `> ${input}`])
+    const clean = sanitizeInput(input)
+    const cmd = clean.toLowerCase()
+    setLines(prev => [...prev, `> ${clean}`])
     setInput('')
 
     if (cmd === 'help') {

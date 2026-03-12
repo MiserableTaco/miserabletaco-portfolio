@@ -100,17 +100,6 @@ export function Loading({ onComplete }: LoadingProps) {
           CLICK ANYWHERE FOR SOUND
         </div>
       )}
-
-      <style>{`
-        @keyframes loadBlink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
-        }
-        @keyframes loadFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }
