@@ -153,6 +153,20 @@ export function Desktop() {
   return null
 }
 
+// ── Text helper — truncate with ellipsis when exceeding maxW ────────
+
+function fillTextTruncated(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number) {
+  if (ctx.measureText(text).width <= maxW) {
+    ctx.fillText(text, x, y)
+    return
+  }
+  let t = text
+  while (t.length > 1 && ctx.measureText(t + '\u2026').width > maxW) {
+    t = t.slice(0, -1)
+  }
+  ctx.fillText(t + '\u2026', x, y)
+}
+
 // ── Bevel helpers ───────────────────────────────────────────────────
 
 function drawRaised(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, face: string) {
@@ -497,7 +511,8 @@ function drawWindow(ctx: CanvasRenderingContext2D, win: DesktopWindow) {
   ctx.fillStyle = '#ffffff'
   ctx.font = `bold ${Math.round(tbH * 0.62)}px "Courier New", monospace`
   ctx.textAlign = 'left'
-  ctx.fillText(win.title, win.x + 10, win.y + tbH * 0.72)
+  const titleMaxW = win.width - (BTN_W * 3 + BTN_GAP * 2 + 24)
+  fillTextTruncated(ctx, win.title, win.x + 10, win.y + tbH * 0.72, titleMaxW)
 
   // Buttons
   const btnY = win.y + Math.round((tbH - BTN_H) / 2) + 1
@@ -694,13 +709,14 @@ function drawStartMenu(ctx: CanvasRenderingContext2D, taskbarY: number) {
 
 // ── Terminal content ─────────────────────────────────────────────────
 
-function drawTerminalContent(ctx: CanvasRenderingContext2D, x: number, y: number, _w: number, h: number) {
+function drawTerminalContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   const { lines, currentInput } = useTerminalStore.getState()
   const lineH = 32
   const fontSize = 26
   const inputLineH = lineH + 8
   const maxVisible = Math.floor((h - inputLineH) / lineH)
   const startLine = Math.max(0, lines.length - maxVisible)
+  const textMaxW = w - 8
 
   ctx.font = `${fontSize}px "Courier New", monospace`
   ctx.textAlign = 'left'
@@ -710,17 +726,18 @@ function drawTerminalContent(ctx: CanvasRenderingContext2D, x: number, y: number
     const ly = y + (i - startLine) * lineH + fontSize
     if (ly > y + h - inputLineH) break
     ctx.fillStyle = line.type === 'error' ? '#ff4444' : '#00ff00'
-    ctx.fillText(line.text, x + 4, ly)
+    fillTextTruncated(ctx, line.text, x + 4, ly, textMaxW)
   }
 
   const inputY = y + h - 8
   ctx.fillStyle = '#00ff00'
   const prompt = `> ${currentInput}`
-  ctx.fillText(prompt, x + 4, inputY)
+  fillTextTruncated(ctx, prompt, x + 4, inputY, textMaxW)
 
   if (Math.floor(performance.now() / 500) % 2 === 0) {
     const promptW = ctx.measureText(prompt).width
-    ctx.fillText('\u2588', x + 4 + promptW + 1, inputY)
+    const cursorX = x + 4 + Math.min(promptW, textMaxW) + 1
+    if (cursorX < x + w) ctx.fillText('\u2588', cursorX, inputY)
   }
 }
 
@@ -735,12 +752,12 @@ function drawProjectHeader(
   ctx.fillStyle = color
   ctx.font = 'bold 38px "Courier New", monospace'
   ctx.textAlign = 'left'
-  ctx.fillText(name, x + 16, y + 38)
+  fillTextTruncated(ctx, name, x + 16, y + 38, w - 140)
 
   // Tagline — smaller, dimmer
   ctx.fillStyle = color + '99'
   ctx.font = '22px "Courier New", monospace'
-  ctx.fillText(tagline, x + 16, y + 66)
+  fillTextTruncated(ctx, tagline, x + 16, y + 66, w - 32)
 
   // VISIT link — top right
   ctx.fillStyle = '#66ccff'
@@ -761,6 +778,7 @@ function drawProjectHeader(
 // ── TRUST content ───────────────────────────────────────────────────
 
 function drawTrustContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _h: number) {
+  const textMaxW = w - 40
   const color = '#00ffff'
   const headerH = drawProjectHeader(
     ctx, x, y, w, color,
@@ -805,15 +823,16 @@ function drawTrustContent(ctx: CanvasRenderingContext2D, x: number, y: number, w
     { label: 'FORMAT', value: 'X.509 / CMS' },
   ]
 
+  const specMaxW = x + w - pad - specX
   for (let i = 0; i < specs.length; i++) {
     const sy = specY + i * 40
     ctx.fillStyle = color + '88'
     ctx.font = '16px "Courier New", monospace'
     ctx.textAlign = 'left'
-    ctx.fillText(specs[i].label, specX, sy)
+    fillTextTruncated(ctx, specs[i].label, specX, sy, specMaxW)
     ctx.fillStyle = color
     ctx.font = 'bold 24px "Courier New", monospace'
-    ctx.fillText(specs[i].value, specX, sy + 24)
+    fillTextTruncated(ctx, specs[i].value, specX, sy + 24, specMaxW)
   }
 
   // Description — below
@@ -826,20 +845,21 @@ function drawTrustContent(ctx: CanvasRenderingContext2D, x: number, y: number, w
     'the institutions that issue them.',
   ]
   for (let i = 0; i < descLines.length; i++) {
-    ctx.fillText(descLines[i], x + pad, descY + i * 30)
+    fillTextTruncated(ctx, descLines[i], x + pad, descY + i * 30, textMaxW)
   }
 
   // Stack
   const stackY = descY + descLines.length * 30 + 20
   ctx.fillStyle = color + '55'
   ctx.font = '18px "Courier New", monospace'
-  ctx.fillText('React \u00b7 Node \u00b7 PostgreSQL \u00b7 Redis', x + pad, stackY)
+  fillTextTruncated(ctx, 'React \u00b7 Node \u00b7 PostgreSQL \u00b7 Redis', x + pad, stackY, textMaxW)
 }
 
 // ── CULTURE content ─────────────────────────────────────────────────
 
 function drawCultureContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _h: number) {
   const color = '#ff00ff'
+  const textMaxW = w - 40
   const headerH = drawProjectHeader(
     ctx, x, y, w, color,
     'CULTURE', 'DefMarks \u2014 Cultural Publication',
@@ -852,9 +872,9 @@ function drawCultureContent(ctx: CanvasRenderingContext2D, x: number, y: number,
   ctx.fillStyle = color + 'cc'
   ctx.font = 'italic 24px Georgia, serif'
   ctx.textAlign = 'left'
-  ctx.fillText('"Finding connections between', x + pad, cy + 8)
-  ctx.fillText(' things people assume are', x + pad, cy + 38)
-  ctx.fillText(' unrelated."', x + pad, cy + 68)
+  fillTextTruncated(ctx, '"Finding connections between', x + pad, cy + 8, textMaxW)
+  fillTextTruncated(ctx, ' things people assume are', x + pad, cy + 38, textMaxW)
+  fillTextTruncated(ctx, ' unrelated."', x + pad, cy + 68, textMaxW)
 
   // Domain tags — styled badges
   const tags = [
@@ -893,7 +913,7 @@ function drawCultureContent(ctx: CanvasRenderingContext2D, x: number, y: number,
   ctx.fillStyle = color + 'aa'
   ctx.font = '22px "Courier New", monospace'
   ctx.textAlign = 'left'
-  ctx.fillText('Articles \u00b7 Analysis \u00b7 Threads', x + pad, descY)
+  fillTextTruncated(ctx, 'Articles \u00b7 Analysis \u00b7 Threads', x + pad, descY, textMaxW)
 
   // Subtle connection lines between random tag positions
   ctx.strokeStyle = color + '15'
@@ -915,13 +935,14 @@ function drawCultureContent(ctx: CanvasRenderingContext2D, x: number, y: number,
   const stackY = descY + 36
   ctx.fillStyle = color + '55'
   ctx.font = '18px "Courier New", monospace'
-  ctx.fillText('Next.js \u00b7 Sanity \u00b7 Vercel', x + pad, stackY)
+  fillTextTruncated(ctx, 'Next.js \u00b7 Sanity \u00b7 Vercel', x + pad, stackY, textMaxW)
 }
 
 // ── UNDERTOW content ────────────────────────────────────────────────
 
 function drawUndertowContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _h: number) {
   const color = '#ffaa00'
+  const textMaxW = w - 40
   const headerH = drawProjectHeader(
     ctx, x, y, w, color,
     'UNDERTOW', 'ARES \u2014 Grand Strategy',
@@ -939,7 +960,7 @@ function drawUndertowContent(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.fillStyle = color
   ctx.font = 'bold 22px "Courier New", monospace'
   ctx.textAlign = 'center'
-  ctx.fillText('\u2593\u2593 OPERATIONAL BRIEFING \u2593\u2593', x + w / 2, cy + 24)
+  fillTextTruncated(ctx, '\u2593\u2593 OPERATIONAL BRIEFING \u2593\u2593', x + w / 2, cy + 24, w - pad * 2)
 
   // Intel fields — two column layout
   const fieldY = cy + 52
@@ -955,10 +976,10 @@ function drawUndertowContent(ctx: CanvasRenderingContext2D, x: number, y: number
     const fy = fieldY + i * 42
     ctx.fillStyle = color + '66'
     ctx.font = '16px "Courier New", monospace'
-    ctx.fillText(fields[i].label, x + pad, fy)
+    fillTextTruncated(ctx, fields[i].label, x + pad, fy, textMaxW)
     ctx.fillStyle = color
     ctx.font = 'bold 24px "Courier New", monospace'
-    ctx.fillText(fields[i].value, x + pad, fy + 26)
+    fillTextTruncated(ctx, fields[i].value, x + pad, fy + 26, textMaxW)
   }
 
   // Separator
@@ -977,14 +998,14 @@ function drawUndertowContent(ctx: CanvasRenderingContext2D, x: number, y: number
     '40 turns. Every decision costs.',
   ]
   for (let i = 0; i < descLines.length; i++) {
-    ctx.fillText(descLines[i], x + pad, descY + i * 30)
+    fillTextTruncated(ctx, descLines[i], x + pad, descY + i * 30, textMaxW)
   }
 
   // URL bar at bottom
   const urlY = descY + descLines.length * 30 + 20
   ctx.fillStyle = color + '55'
   ctx.font = '18px "Courier New", monospace'
-  ctx.fillText('Godot \u00b7 GDScript \u00b7 Web Export', x + pad, urlY)
+  fillTextTruncated(ctx, 'Godot \u00b7 GDScript \u00b7 Web Export', x + pad, urlY, textMaxW)
 }
 
 // ── Scrollable text content (ABOUT / CONTACT) ──────────────────────
@@ -1013,16 +1034,18 @@ function drawTextContent(
   const visibleStart = Math.floor(offset / lineH)
   const maxVisible = Math.floor((h - headerH) / lineH)
 
+  const textMaxW = w - 24
+
   for (let i = visibleStart; i < lines.length && i < visibleStart + maxVisible + 1; i++) {
     const ly = y + headerH + (i - visibleStart) * lineH - (offset % lineH) + fontSize
     if (ly < y + headerH || ly > y + h) continue
 
     const isLink = links != null && i in links
     ctx.fillStyle = isLink ? '#66ccff' : color
-    ctx.fillText(lines[i], x + 12, ly)
+    fillTextTruncated(ctx, lines[i], x + 12, ly, textMaxW)
 
     if (isLink) {
-      const tw = ctx.measureText(lines[i]).width
+      const tw = Math.min(ctx.measureText(lines[i]).width, textMaxW)
       ctx.fillRect(x + 12, ly + 3, tw, 2)
     }
   }
@@ -1040,10 +1063,11 @@ function drawTextContent(
 // ── My Computer content ─────────────────────────────────────────────
 
 function drawMyComputerContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _h: number) {
+  const textMaxW = w - 32
   ctx.fillStyle = '#aaaaaa'
   ctx.font = 'bold 28px "Courier New", monospace'
   ctx.textAlign = 'left'
-  ctx.fillText('System Properties', x + 16, y + 32)
+  fillTextTruncated(ctx, 'System Properties', x + 16, y + 32, textMaxW)
 
   ctx.fillStyle = '#555'
   ctx.fillRect(x + 16, y + 40, w - 32, 1)
@@ -1061,13 +1085,14 @@ function drawMyComputerContent(ctx: CanvasRenderingContext2D, x: number, y: numb
     ['User', 'GUEST'],
   ]
 
+  const valMaxW = w - 180
   ctx.font = '22px "Courier New", monospace'
   for (let i = 0; i < lines.length; i++) {
     const ly = y + 72 + i * 36
     ctx.fillStyle = '#888'
     ctx.fillText(lines[i][0], x + 20, ly)
     ctx.fillStyle = '#00ff00'
-    ctx.fillText(lines[i][1], x + 160, ly)
+    fillTextTruncated(ctx, lines[i][1], x + 160, ly, valMaxW)
   }
 
   // Drive bars
@@ -1091,7 +1116,7 @@ function drawMyComputerContent(ctx: CanvasRenderingContext2D, x: number, y: numb
     ctx.fillStyle = drives[i].used > 0.8 ? '#cc4444' : '#3388cc'
     ctx.fillRect(x + 70, dy - 14, barW * drives[i].used, 18)
     ctx.fillStyle = '#888'
-    ctx.fillText(drives[i].total, x + 70 + barW + 12, dy)
+    fillTextTruncated(ctx, drives[i].total, x + 70 + barW + 12, dy, w - 70 - barW - 24)
   }
 }
 
@@ -1106,13 +1131,14 @@ function formatUptime(): string {
 // ── Notepad content ─────────────────────────────────────────────────
 
 function drawNotepadContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _h: number) {
+  const textMaxW = w - 60 // leave room for line numbers
   // Menu bar
   ctx.fillStyle = '#111'
   ctx.fillRect(x, y, w, 30)
   ctx.fillStyle = '#888'
   ctx.font = '20px "Courier New", monospace'
   ctx.textAlign = 'left'
-  ctx.fillText('File  Edit  Format  Help', x + 12, y + 22)
+  fillTextTruncated(ctx, 'File  Edit  Format  Help', x + 12, y + 22, w - 24)
 
   ctx.fillStyle = '#555'
   ctx.fillRect(x, y + 30, w, 1)
@@ -1152,7 +1178,7 @@ function drawNotepadContent(ctx: CanvasRenderingContext2D, x: number, y: number,
     } else {
       ctx.fillStyle = '#888'
     }
-    ctx.fillText(noteLines[i], x + 12, ly)
+    fillTextTruncated(ctx, noteLines[i], x + 12, ly, textMaxW)
   }
 
   // Line numbers
@@ -1168,10 +1194,11 @@ function drawNotepadContent(ctx: CanvasRenderingContext2D, x: number, y: number,
 // ── Backup content ──────────────────────────────────────────────────
 
 function drawBackupContent(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _h: number) {
+  const textMaxW = w - 32
   ctx.fillStyle = '#aaaaaa'
   ctx.font = 'bold 28px "Courier New", monospace'
   ctx.textAlign = 'left'
-  ctx.fillText('Archive Contents', x + 16, y + 32)
+  fillTextTruncated(ctx, 'Archive Contents', x + 16, y + 32, textMaxW)
 
   ctx.fillStyle = '#555'
   ctx.fillRect(x + 16, y + 40, w - 32, 1)
@@ -1227,7 +1254,7 @@ function drawBackupContent(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.fillRect(x + 16, footerY, w - 32, 1)
   ctx.fillStyle = '#666'
   ctx.font = '18px "Courier New", monospace'
-  ctx.fillText(`${files.length} items | 1.5 MB`, x + 20, footerY + 24)
+  fillTextTruncated(ctx, `${files.length} items | 1.5 MB`, x + 20, footerY + 24, textMaxW)
 }
 
 // ── CRT scanlines ───────────────────────────────────────────────────
