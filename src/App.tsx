@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Scene } from '@/components/Scene'
 import { Desktop } from '@/components/Desktop'
 import { Loading } from '@/components/Loading'
@@ -136,7 +137,7 @@ export default function App() {
   if (isMobile) return <MobileFallback />
 
   return (
-    <>
+    <ErrorBoundary>
       {loading && <Loading onComplete={() => setLoading(false)} />}
       <Scene />
       <Desktop />
@@ -164,6 +165,6 @@ export default function App() {
       >
         {muted ? 'MUTED' : 'SOUND'}
       </button>
-    </>
+    </ErrorBoundary>
   )
 }

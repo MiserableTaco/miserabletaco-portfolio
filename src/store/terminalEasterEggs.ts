@@ -1,12 +1,12 @@
+import type { TerminalLine } from '@/store/terminalStore'
 import { useObjectStore } from '@/store/objectStore'
 
-export interface TerminalLine {
-  type: 'command' | 'output' | 'error'
-  text: string
-}
+type CommandHandler = (args: string[], input: string) => TerminalLine[]
 
-export function processEasterEgg(command: string, args: string[], _input: string): TerminalLine[] | null {
-  if (command === 'sudo') {
+// ── Simple command map ──────────────────────────────────────────────
+
+const EASTER_EGGS: Record<string, CommandHandler> = {
+  sudo: (args) => {
     if (args.join(' ') === 'rm -rf /') {
       return [
         { type: 'output', text: '[sudo] password for g: ********' },
@@ -24,66 +24,34 @@ export function processEasterEgg(command: string, args: string[], _input: string
       { type: 'error', text: 'g is not in the sudoers file.' },
       { type: 'error', text: 'This incident will be reported.' },
     ]
-  }
+  },
 
-  if (command === 'rm' && args[0] === '-rf' && args[1] === '/' && args.includes('--no-preserve-root')) {
-    return [
-      { type: 'output', text: 'Deleting system files...' },
-      { type: 'output', text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'Just kidding. Everything is still here.' },
-      { type: 'output', text: 'This portfolio is indestructible.' },
-      { type: 'output', text: 'Like cockroaches and COBOL.' },
-    ]
-  }
+  vim: () => [
+    { type: 'output', text: 'Entering vim...' },
+    { type: 'output', text: '~' },
+    { type: 'output', text: '~' },
+    { type: 'output', text: '~' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'Type :q to exit... or just give up.' },
+  ],
 
-  if (command === 'rm' && args[0] === '-rf' && args[1] === '/') {
-    return [
-      { type: 'output', text: 'Deleting system files...' },
-      { type: 'output', text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
-      { type: 'error', text: 'Access denied.' },
-    ]
-  }
+  ping: (args) => [
+    { type: 'output', text: `PING ${args[0] ?? 'localhost'} (127.0.0.1): 56 data bytes` },
+    { type: 'output', text: '64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=0.045 ms' },
+    { type: 'output', text: '64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.038 ms' },
+    { type: 'output', text: 'Reply from yourself: stop' },
+  ],
 
-  if (command === 'vim') {
-    return [
-      { type: 'output', text: 'Entering vim...' },
-      { type: 'output', text: '~' },
-      { type: 'output', text: '~' },
-      { type: 'output', text: '~' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'Type :q to exit... or just give up.' },
-    ]
-  }
+  top: () => [
+    { type: 'output', text: 'Processes: 3 total' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'PID    COMMAND          %CPU' },
+    { type: 'output', text: '4821   career_plan      99.2' },
+    { type: 'output', text: '4822   side_projects    45.7' },
+    { type: 'output', text: '4823   coffee           12.1' },
+  ],
 
-  if (command === 'ping') {
-    return [
-      { type: 'output', text: `PING ${args[0] ?? 'localhost'} (127.0.0.1): 56 data bytes` },
-      { type: 'output', text: '64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=0.045 ms' },
-      { type: 'output', text: '64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.038 ms' },
-      { type: 'output', text: 'Reply from yourself: stop' },
-    ]
-  }
-
-  if (command === 'top') {
-    return [
-      { type: 'output', text: 'Processes: 3 total' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'PID    COMMAND          %CPU' },
-      { type: 'output', text: '4821   career_plan      99.2' },
-      { type: 'output', text: '4822   side_projects    45.7' },
-      { type: 'output', text: '4823   coffee           12.1' },
-    ]
-  }
-
-  if (command === 'git' && args[0] === 'push') {
-    return [
-      { type: 'output', text: 'Everything up-to-date.' },
-      { type: 'output', text: 'Nothing to deploy.' },
-    ]
-  }
-
-  if (command === 'fortune') {
+  fortune: () => {
     const fortunes = [
       ['Build tools, not monuments.', '— Someone who built a monument'],
       ['The best code is no code at all.', '— Every senior engineer eventually'],
@@ -107,46 +75,42 @@ export function processEasterEgg(command: string, args: string[], _input: string
       ...f.map(line => ({ type: 'output' as const, text: `│  ${line}` })),
       { type: 'output', text: '└────────────────────────────────────┘' },
     ]
-  }
+  },
 
-  if (command === 'tree') {
-    return [
-      { type: 'output', text: '' },
-      { type: 'output', text: '               *' },
-      { type: 'output', text: '              /|\\' },
-      { type: 'output', text: '             / | \\' },
-      { type: 'output', text: '            /__|__\\' },
-      { type: 'output', text: '           /       \\' },
-      { type: 'output', text: '          / TRUST   \\' },
-      { type: 'output', text: '         / CULTURE   \\' },
-      { type: 'output', text: '        /    ARES     \\' },
-      { type: 'output', text: '       /_______________\\' },
-      { type: 'output', text: '            |   |' },
-      { type: 'output', text: '            |   |' },
-      { type: 'output', text: '          __|   |__' },
-      { type: 'output', text: '         |_________|' },
-      { type: 'output', text: '' },
-      { type: 'output', text: '  TRUST ......... AcadCert + VeriCert' },
-      { type: 'output', text: '  CULTURE ....... DefMarks' },
-      { type: 'output', text: '  ARES .......... Undertow' },
-      { type: 'output', text: '' },
-    ]
-  }
+  tree: () => [
+    { type: 'output', text: '' },
+    { type: 'output', text: '               *' },
+    { type: 'output', text: '              /|\\' },
+    { type: 'output', text: '             / | \\' },
+    { type: 'output', text: '            /__|__\\' },
+    { type: 'output', text: '           /       \\' },
+    { type: 'output', text: '          / TRUST   \\' },
+    { type: 'output', text: '         / CULTURE   \\' },
+    { type: 'output', text: '        /    ARES     \\' },
+    { type: 'output', text: '       /_______________\\' },
+    { type: 'output', text: '            |   |' },
+    { type: 'output', text: '            |   |' },
+    { type: 'output', text: '          __|   |__' },
+    { type: 'output', text: '         |_________|' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '  TRUST ......... AcadCert + VeriCert' },
+    { type: 'output', text: '  CULTURE ....... DefMarks' },
+    { type: 'output', text: '  ARES .......... Undertow' },
+    { type: 'output', text: '' },
+  ],
 
-  if (command === 'snake') {
-    return [
-      { type: 'output', text: '  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' },
-      { type: 'output', text: '  \u2588                  \u2588' },
-      { type: 'output', text: '  \u2588   \u25CF\u25CF\u25CF\u25CF\u25CF>    \u25CB   \u2588' },
-      { type: 'output', text: '  \u2588                  \u2588' },
-      { type: 'output', text: '  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' },
-      { type: 'output', text: '  Score: 42   High: 42' },
-      { type: 'output', text: '' },
-      { type: 'output', text: '  You already won. Trust the process.' },
-    ]
-  }
+  snake: () => [
+    { type: 'output', text: '  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' },
+    { type: 'output', text: '  \u2588                  \u2588' },
+    { type: 'output', text: '  \u2588   \u25CF\u25CF\u25CF\u25CF\u25CF>    \u25CB   \u2588' },
+    { type: 'output', text: '  \u2588                  \u2588' },
+    { type: 'output', text: '  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588' },
+    { type: 'output', text: '  Score: 42   High: 42' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '  You already won. Trust the process.' },
+  ],
 
-  if (command === 'matrix') {
+  matrix: () => {
     const chars = '\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3\u30B5\u30B7\u30B9\u30BB\u30BD0123456789'
     const lines: TerminalLine[] = []
     for (let i = 0; i < 8; i++) {
@@ -159,24 +123,22 @@ export function processEasterEgg(command: string, args: string[], _input: string
     lines.push({ type: 'output', text: '' })
     lines.push({ type: 'output', text: 'Wake up, Neo...' })
     return lines
-  }
+  },
 
-  if (command === 'neofetch') {
-    return [
-      { type: 'output', text: '       ___       g@portfolio' },
-      { type: 'output', text: '      /   \\      OS: ARES v4.5' },
-      { type: 'output', text: '     | o o |     Host: miserabletaco.dev' },
-      { type: 'output', text: '     |  >  |     Kernel: consciousness-1.0' },
-      { type: 'output', text: '      \\___/      Uptime: since 2024' },
-      { type: 'output', text: '     /|   |\\     Shell: ARES-sh' },
-      { type: 'output', text: '    / |   | \\    Resolution: 1024x768' },
-      { type: 'output', text: '       | |       Projects: 3' },
-      { type: 'output', text: '      _| |_      Coffee: critical' },
-    ]
-  }
+  neofetch: () => [
+    { type: 'output', text: '       ___       g@portfolio' },
+    { type: 'output', text: '      /   \\      OS: ARES v4.5' },
+    { type: 'output', text: '     | o o |     Host: miserabletaco.dev' },
+    { type: 'output', text: '     |  >  |     Kernel: consciousness-1.0' },
+    { type: 'output', text: '      \\___/      Uptime: since 2024' },
+    { type: 'output', text: '     /|   |\\     Shell: ARES-sh' },
+    { type: 'output', text: '    / |   | \\    Resolution: 1024x768' },
+    { type: 'output', text: '       | |       Projects: 3' },
+    { type: 'output', text: '      _| |_      Coffee: critical' },
+  ],
 
-  if (command === 'cowsay') {
-    const message = args.length > 0 ? args.join(' ') : 'moo'
+  cowsay: (args) => {
+    const message = (args.length > 0 ? args.join(' ') : 'moo').slice(0, 60)
     const border = '-'.repeat(message.length + 2)
     return [
       { type: 'output', text: ` ${border}` },
@@ -188,36 +150,24 @@ export function processEasterEgg(command: string, args: string[], _input: string
       { type: 'output', text: '                ||----w |' },
       { type: 'output', text: '                ||     ||' },
     ]
-  }
+  },
 
-  if (command === 'npm' && args[0] === 'install') {
-    return [
-      { type: 'output', text: 'added 1,247 packages in 45s' },
-      { type: 'output', text: '' },
-      { type: 'output', text: '312 vulnerabilities (47 moderate, 198 high, 67 critical)' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'node_modules is now 2.3 GB. You\'re welcome.' },
-    ]
-  }
+  curl: () => [
+    { type: 'output', text: 'HTTP/1.1 200 OK' },
+    { type: 'output', text: 'Content-Type: application/json' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '{ "status": "alive", "mood": "building" }' },
+  ],
 
-  if (command === 'curl') {
-    return [
-      { type: 'output', text: 'HTTP/1.1 200 OK' },
-      { type: 'output', text: 'Content-Type: application/json' },
-      { type: 'output', text: '' },
-      { type: 'output', text: '{ "status": "alive", "mood": "building" }' },
-    ]
-  }
-
-  if (command === 'ssh') {
+  ssh: (args) => {
     const host = args[0] || 'localhost'
     return [
       { type: 'output', text: `ssh: connect to host ${host} port 22:` },
       { type: 'error', text: 'Connection refused. Try meeting in person.' },
     ]
-  }
+  },
 
-  if (command === 'make') {
+  make: (args) => {
     if (args.length === 0) {
       return [{ type: 'error', text: 'make: *** No targets specified. Stop.' }]
     }
@@ -228,40 +178,34 @@ export function processEasterEgg(command: string, args: string[], _input: string
       return [{ type: 'error', text: 'Error: insufficient venture capital.' }]
     }
     return [{ type: 'output', text: `make: Nothing to be done for '${args[0]}'.` }]
-  }
+  },
 
-  if (command === ':q' || command === ':wq' || command === ':q!') {
-    return [{ type: 'output', text: 'You escaped vim. Few can claim this.' }]
-  }
-
-  if (command === 'cd') {
+  cd: (args) => {
     if (args[0] === '..') {
       return [{ type: 'output', text: 'You can\'t leave. You live here now.' }]
     }
     return [{ type: 'output', text: `/home/g/${args[0] || 'portfolio'}` }]
-  }
+  },
 
-  if (command === 'uptime') {
+  uptime: () => {
     const seconds = Math.floor(performance.now() / 1000)
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return [{ type: 'output', text: `up ${mins}m ${secs}s, 1 user, load average: 0.42 0.38 0.31` }]
-  }
+  },
 
-  if (command === 'yes') {
+  yes: (args) => {
     const text = args[0] || 'y'
     return Array.from({ length: 20 }, () => ({ type: 'output' as const, text }))
-  }
+  },
 
-  if (command === 'hexdump') {
-    return [
-      { type: 'output', text: '00000000  54 61 73 74 65 20 2b 20  |Taste + |' },
-      { type: 'output', text: '00000008  65 78 65 63 75 74 69 6f  |executio|' },
-      { type: 'output', text: '00000010  6e 2e                    |n.      |' },
-    ]
-  }
+  hexdump: () => [
+    { type: 'output', text: '00000000  54 61 73 74 65 20 2b 20  |Taste + |' },
+    { type: 'output', text: '00000008  65 78 65 63 75 74 69 6f  |executio|' },
+    { type: 'output', text: '00000010  6e 2e                    |n.      |' },
+  ],
 
-  if (command === 'man') {
+  man: (args) => {
     if (args.length === 0) {
       return [{ type: 'error', text: 'What manual page do you want?' }]
     }
@@ -272,79 +216,49 @@ export function processEasterEgg(command: string, args: string[], _input: string
       { type: 'output', text: 'DESCRIPTION' },
       { type: 'output', text: '    Read the source code.' },
     ]
-  }
+  },
 
-  if (command === 'sl') {
-    return [
-      { type: 'output', text: '      ====        ________' },
-      { type: 'output', text: '  _D _|  |_______/        \\__I_' },
-      { type: 'output', text: '   |(_)---  |   H\\________/ |  |' },
-      { type: 'output', text: '   /     |  |   H  |  |     |  |' },
-      { type: 'output', text: '  |      |  |   H  |__----__|  |' },
-      { type: 'output', text: '  | ________|___H__/__|_____/___\\' },
-      { type: 'output', text: '  |/ |     |  H  |  |     |  |' },
-      { type: 'output', text: '  |  |  O  |  H  |  O  O  |  O' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'You meant ls, didn\'t you?' },
-    ]
-  }
+  sl: () => [
+    { type: 'output', text: '      ====        ________' },
+    { type: 'output', text: '  _D _|  |_______/        \\__I_' },
+    { type: 'output', text: '   |(_)---  |   H\\________/ |  |' },
+    { type: 'output', text: '   /     |  |   H  |  |     |  |' },
+    { type: 'output', text: '  |      |  |   H  |__----__|  |' },
+    { type: 'output', text: '  | ________|___H__/__|_____/___\\' },
+    { type: 'output', text: '  |/ |     |  H  |  |     |  |' },
+    { type: 'output', text: '  |  |  O  |  H  |  O  O  |  O' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'You meant ls, didn\'t you?' },
+  ],
 
-  if (command === 'brew' || command === 'coffee') {
-    return [
-      { type: 'output', text: '    ( (' },
-      { type: 'output', text: '     ) )' },
-      { type: 'output', text: '  ........' },
-      { type: 'output', text: '  |      |]' },
-      { type: 'output', text: '  \\      /' },
-      { type: 'output', text: '   `----\'' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'Coffee brewed. Productivity +10.' },
-    ]
-  }
+  brew: () => [
+    { type: 'output', text: '    ( (' },
+    { type: 'output', text: '     ) )' },
+    { type: 'output', text: '  ........' },
+    { type: 'output', text: '  |      |]' },
+    { type: 'output', text: '  \\      /' },
+    { type: 'output', text: '   `----\'' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'Coffee brewed. Productivity +10.' },
+  ],
 
-  if (command === 'grep') {
-    return [
-      { type: 'output', text: `grep: searching for '${args.join(' ')}' in /dev/meaning-of-life` },
-      { type: 'output', text: 'No matches found. Keep looking.' },
-    ]
-  }
+  grep: (args) => [
+    { type: 'output', text: `grep: searching for '${args.join(' ')}' in /dev/meaning-of-life` },
+    { type: 'output', text: 'No matches found. Keep looking.' },
+  ],
 
-  if (command === 'docker') {
-    return [
-      { type: 'output', text: 'Cannot connect to the Docker daemon. Is the Docker daemon running?' },
-      { type: 'output', text: 'Just kidding. This is a portfolio, not a server.' },
-    ]
-  }
+  docker: () => [
+    { type: 'output', text: 'Cannot connect to the Docker daemon. Is the Docker daemon running?' },
+    { type: 'output', text: 'Just kidding. This is a portfolio, not a server.' },
+  ],
 
-  if (command === 'python') {
-    return [
-      { type: 'output', text: 'Python 3.12.0' },
-      { type: 'output', text: '>>> import antigravity' },
-      { type: 'output', text: 'xkcd.com/353' },
-    ]
-  }
+  python: () => [
+    { type: 'output', text: 'Python 3.12.0' },
+    { type: 'output', text: '>>> import antigravity' },
+    { type: 'output', text: 'xkcd.com/353' },
+  ],
 
-  if (command === 'cat' && args[0] !== 'README.md') {
-    if (args[0] === '/dev/urandom') {
-      let out = ''
-      const chars = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`abcdefABCDEF0123456789'
-      for (let i = 0; i < 160; i++) out += chars[Math.floor(Math.random() * chars.length)]
-      return [
-        { type: 'output', text: out.slice(0, 40) },
-        { type: 'output', text: out.slice(40, 80) },
-        { type: 'output', text: out.slice(80, 120) },
-        { type: 'output', text: out.slice(120) },
-        { type: 'output', text: '' },
-        { type: 'output', text: '^C  (you probably wanted that)' },
-      ]
-    }
-    if (args[0]) {
-      return [{ type: 'error', text: `cat: ${args[0]}: Permission denied` }]
-    }
-    return [{ type: 'output', text: 'Usage: cat <file>' }]
-  }
-
-  if (command === 'hack') {
+  hack: (args) => {
     const target = args[0] || 'mainframe'
     return [
       { type: 'output', text: `Connecting to ${target}...` },
@@ -359,9 +273,9 @@ export function processEasterEgg(command: string, args: string[], _input: string
       { type: 'output', text: '' },
       { type: 'error', text: 'CONNECTION TERMINATED BY REMOTE HOST' },
     ]
-  }
+  },
 
-  if (command === 'weather') {
+  weather: () => {
     const temps = [28, 29, 30, 31, 32, 33, 34]
     const temp = temps[Math.floor(Math.random() * temps.length)]
     const conditions = ['Humid', 'Very humid', 'Extremely humid', 'Soup']
@@ -374,9 +288,9 @@ export function processEasterEgg(command: string, args: string[], _input: string
       { type: 'output', text: '  UV Index: Yes' },
       { type: 'output', text: '  Forecast: Same as yesterday. And tomorrow.' },
     ]
-  }
+  },
 
-  if (command === 'joke') {
+  joke: () => {
     const jokes = [
       ['Why do programmers prefer dark mode?', 'Because light attracts bugs.'],
       ['A SQL query walks into a bar,', 'walks up to two tables and asks...', '"Can I join you?"'],
@@ -391,47 +305,197 @@ export function processEasterEgg(command: string, args: string[], _input: string
     ]
     const j = jokes[Math.floor(Math.random() * jokes.length)]
     return j.map(line => ({ type: 'output' as const, text: line }))
-  }
+  },
 
-  if (command === 'rickroll') {
+  rickroll: () => [
+    { type: 'output', text: '\u266A Never gonna give you up' },
+    { type: 'output', text: '\u266A Never gonna let you down' },
+    { type: 'output', text: '\u266A Never gonna run around and desert you' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'You just got terminal-rolled.' },
+  ],
+
+  xyzzy: () => [
+    { type: 'output', text: 'A hollow voice says "Plugh."' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'You are in a dimly lit office.' },
+    { type: 'output', text: 'A CRT monitor hums softly.' },
+    { type: 'output', text: 'Exits: TRUST, CULTURE, UNDERTOW' },
+  ],
+
+  plugh: () => [
+    { type: 'output', text: 'A hollow voice says "Xyzzy."' },
+    { type: 'output', text: 'You\'re going in circles.' },
+  ],
+
+  nmap: (args) => {
+    const target = args[0] || 'miserabletaco.dev'
     return [
-      { type: 'output', text: '\u266A Never gonna give you up' },
-      { type: 'output', text: '\u266A Never gonna let you down' },
-      { type: 'output', text: '\u266A Never gonna run around and desert you' },
+      { type: 'output', text: `Starting Nmap scan of ${target}` },
       { type: 'output', text: '' },
-      { type: 'output', text: 'You just got terminal-rolled.' },
+      { type: 'output', text: 'PORT     STATE    SERVICE' },
+      { type: 'output', text: '22/tcp   closed   ssh' },
+      { type: 'output', text: '80/tcp   open     http' },
+      { type: 'output', text: '443/tcp  open     https' },
+      { type: 'output', text: '1337/tcp open     taste' },
+      { type: 'output', text: '8080/tcp open     side-projects' },
+      { type: 'output', text: '9001/tcp open     ambition (over 9000)' },
+      { type: 'output', text: '' },
+      { type: 'output', text: '6 services detected. 0 vulnerabilities. Nice try.' },
+    ]
+  },
+
+  traceroute: () => [
+    { type: 'output', text: 'traceroute to success (∞ hops max)' },
+    { type: 'output', text: '' },
+    { type: 'output', text: ' 1  idea.local          0.1ms' },
+    { type: 'output', text: ' 2  prototype.dev        2.3ms' },
+    { type: 'output', text: ' 3  * * * doubt.timeout  ∞ms' },
+    { type: 'output', text: ' 4  refactor.again       45.2ms' },
+    { type: 'output', text: ' 5  ship-it.prod         0.4ms' },
+    { type: 'output', text: ' 6  users.pay            ???ms' },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'Destination reached. Eventually.' },
+  ],
+
+  figlet: (args) => {
+    const text = args.join(' ').toUpperCase() || 'HI'
+    if (text.length > 8) {
+      return [{ type: 'error', text: 'figlet: text too long (max 8 chars)' }]
+    }
+    const font: Record<string, string[]> = {
+      'H': ['\u2588  \u2588', '\u2588\u2588\u2588\u2588', '\u2588  \u2588', '\u2588  \u2588'],
+      'I': ['\u2588\u2588\u2588', ' \u2588 ', ' \u2588 ', '\u2588\u2588\u2588'],
+      'G': [' \u2588\u2588\u2588', '\u2588   ', '\u2588 \u2588\u2588', ' \u2588\u2588\u2588'],
+      'A': [' \u2588\u2588 ', '\u2588  \u2588', '\u2588\u2588\u2588\u2588', '\u2588  \u2588'],
+      'B': ['\u2588\u2588\u2588 ', '\u2588  \u2588', '\u2588\u2588\u2588 ', '\u2588\u2588\u2588 '],
+      'C': [' \u2588\u2588\u2588', '\u2588   ', '\u2588   ', ' \u2588\u2588\u2588'],
+      'D': ['\u2588\u2588\u2588 ', '\u2588  \u2588', '\u2588  \u2588', '\u2588\u2588\u2588 '],
+      'E': ['\u2588\u2588\u2588\u2588', '\u2588\u2588  ', '\u2588   ', '\u2588\u2588\u2588\u2588'],
+      'F': ['\u2588\u2588\u2588\u2588', '\u2588\u2588  ', '\u2588   ', '\u2588   '],
+      ' ': ['    ', '    ', '    ', '    '],
+    }
+    const rows = ['', '', '', '']
+    for (const ch of text) {
+      const glyph = font[ch] || font[' ']!
+      for (let r = 0; r < 4; r++) rows[r] += (glyph[r] ?? '    ') + ' '
+    }
+    return rows.map(r => ({ type: 'output' as const, text: r }))
+  },
+
+  apt: () => [
+    { type: 'output', text: 'apt: command not found' },
+    { type: 'output', text: 'This is a browser, not a server.' },
+    { type: 'output', text: 'Try: brew' },
+  ],
+
+  wget: (args) => {
+    const url = args[0] || 'https://example.com'
+    return [
+      { type: 'output', text: `--2026-03-11 15:42:00--  ${url}` },
+      { type: 'output', text: 'Resolving... failed.' },
+      { type: 'output', text: '' },
+      { type: 'output', text: 'You can\'t download the internet from a portfolio.' },
+    ]
+  },
+
+  chmod: () => [
+    { type: 'output', text: 'chmod: changing permissions of \'everything\': Nice try.' },
+    { type: 'output', text: 'You\'re a guest. Guests get read access.' },
+  ],
+
+  whois: () => [
+    { type: 'output', text: 'Domain: miserabletaco.dev' },
+    { type: 'output', text: 'Registrant: G' },
+    { type: 'output', text: 'Location: Singapore' },
+    { type: 'output', text: 'Status: Building' },
+    { type: 'output', text: 'Stack: React + Three.js + Zustand' },
+    { type: 'output', text: 'Philosophy: Ship fast, care about taste' },
+    { type: 'output', text: 'Coffee: Essential' },
+  ],
+
+  lolcat: (args) => {
+    const text = args.join(' ') || 'meow'
+    return [
+      { type: 'output', text: 'lolcat: ANSI colors not supported in this terminal.' },
+      { type: 'output', text: `But here's your text anyway: ${text}` },
+      { type: 'output', text: '(Try "disco" for actual colors)' },
+    ]
+  },
+
+  disco: () => {
+    useObjectStore.getState().activateDisco()
+    return [
+      { type: 'output', text: '> DISCO MODE ACTIVATED' },
+      { type: 'output', text: '  \u266A Now playing: Tropical Pluck \u266A' },
+      { type: 'output', text: '  Type "stop" to end early' },
+    ]
+  },
+
+  stop: () => {
+    if (useObjectStore.getState().discoActive) {
+      useObjectStore.getState().deactivateDisco()
+      return [{ type: 'output', text: '> Disco stopped.' }]
+    }
+    return [{ type: 'output', text: 'Nothing to stop.' }]
+  },
+}
+
+// Shared handlers: coffee -> brew, pip -> apt, secrets -> secret
+EASTER_EGGS.coffee = EASTER_EGGS.brew
+EASTER_EGGS.pip = EASTER_EGGS.apt
+
+const secretHandler: CommandHandler = () => [
+  { type: 'output', text: 'Hidden things in this terminal:' },
+  { type: 'output', text: '' },
+  { type: 'output', text: '  [\u2713] You found the secret command' },
+  { type: 'output', text: '  [ ] Try a classic adventure game word' },
+  { type: 'output', text: '  [ ] There\'s a cheat code for everything' },
+  { type: 'output', text: '  [ ] Click the objects on the desk' },
+  { type: 'output', text: '  [ ] The sticky notes have stories' },
+  { type: 'output', text: '  [ ] Some commands have hidden arguments' },
+  { type: 'output', text: '' },
+  { type: 'output', text: 'Curiosity is the only credential.' },
+]
+EASTER_EGGS.secret = secretHandler
+EASTER_EGGS.secrets = secretHandler
+
+// ── Prefix commands (vim exit) ──────────────────────────────────────
+
+const PREFIX_COMMANDS: Record<string, CommandHandler> = {
+  ':q': () => [{ type: 'output', text: 'You escaped vim. Few can claim this.' }],
+  ':wq': () => [{ type: 'output', text: 'You escaped vim. Few can claim this.' }],
+  ':q!': () => [{ type: 'output', text: 'You escaped vim. Few can claim this.' }],
+}
+
+// ── Main dispatcher ─────────────────────────────────────────────────
+
+export function processEasterEgg(command: string, args: string[], input: string): TerminalLine[] | null {
+  // Special cases: rm -rf / (with and without --no-preserve-root)
+  if (command === 'rm' && args[0] === '-rf' && args[1] === '/' && args.includes('--no-preserve-root')) {
+    return [
+      { type: 'output', text: 'Deleting system files...' },
+      { type: 'output', text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
+      { type: 'output', text: '' },
+      { type: 'output', text: 'Just kidding. Everything is still here.' },
+      { type: 'output', text: 'This portfolio is indestructible.' },
+      { type: 'output', text: 'Like cockroaches and COBOL.' },
     ]
   }
 
-  if (command === 'xyzzy') {
+  if (command === 'rm' && args[0] === '-rf' && args[1] === '/') {
     return [
-      { type: 'output', text: 'A hollow voice says "Plugh."' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'You are in a dimly lit office.' },
-      { type: 'output', text: 'A CRT monitor hums softly.' },
-      { type: 'output', text: 'Exits: TRUST, CULTURE, UNDERTOW' },
+      { type: 'output', text: 'Deleting system files...' },
+      { type: 'output', text: '[\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593] 100%' },
+      { type: 'error', text: 'Access denied.' },
     ]
   }
 
-  if (command === 'plugh') {
+  // Special case: git subcommands
+  if (command === 'git' && args[0] === 'push') {
     return [
-      { type: 'output', text: 'A hollow voice says "Xyzzy."' },
-      { type: 'output', text: 'You\'re going in circles.' },
-    ]
-  }
-
-  if (command === 'secret' || command === 'secrets') {
-    return [
-      { type: 'output', text: 'Hidden things in this terminal:' },
-      { type: 'output', text: '' },
-      { type: 'output', text: '  [\u2713] You found the secret command' },
-      { type: 'output', text: '  [ ] Try a classic adventure game word' },
-      { type: 'output', text: '  [ ] There\'s a cheat code for everything' },
-      { type: 'output', text: '  [ ] Click the objects on the desk' },
-      { type: 'output', text: '  [ ] The sticky notes have stories' },
-      { type: 'output', text: '  [ ] Some commands have hidden arguments' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'Curiosity is the only credential.' },
+      { type: 'output', text: 'Everything up-to-date.' },
+      { type: 'output', text: 'Nothing to deploy.' },
     ]
   }
 
@@ -465,125 +529,45 @@ export function processEasterEgg(command: string, args: string[], _input: string
     ]
   }
 
-  if (command === 'nmap') {
-    const target = args[0] || 'miserabletaco.dev'
+  // Special case: npm install
+  if (command === 'npm' && args[0] === 'install') {
     return [
-      { type: 'output', text: `Starting Nmap scan of ${target}` },
+      { type: 'output', text: 'added 1,247 packages in 45s' },
       { type: 'output', text: '' },
-      { type: 'output', text: 'PORT     STATE    SERVICE' },
-      { type: 'output', text: '22/tcp   closed   ssh' },
-      { type: 'output', text: '80/tcp   open     http' },
-      { type: 'output', text: '443/tcp  open     https' },
-      { type: 'output', text: '1337/tcp open     taste' },
-      { type: 'output', text: '8080/tcp open     side-projects' },
-      { type: 'output', text: '9001/tcp open     ambition (over 9000)' },
+      { type: 'output', text: '312 vulnerabilities (47 moderate, 198 high, 67 critical)' },
       { type: 'output', text: '' },
-      { type: 'output', text: '6 services detected. 0 vulnerabilities. Nice try.' },
+      { type: 'output', text: 'node_modules is now 2.3 GB. You\'re welcome.' },
     ]
   }
 
-  if (command === 'traceroute') {
-    return [
-      { type: 'output', text: 'traceroute to success (∞ hops max)' },
-      { type: 'output', text: '' },
-      { type: 'output', text: ' 1  idea.local          0.1ms' },
-      { type: 'output', text: ' 2  prototype.dev        2.3ms' },
-      { type: 'output', text: ' 3  * * * doubt.timeout  ∞ms' },
-      { type: 'output', text: ' 4  refactor.again       45.2ms' },
-      { type: 'output', text: ' 5  ship-it.prod         0.4ms' },
-      { type: 'output', text: ' 6  users.pay            ???ms' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'Destination reached. Eventually.' },
-    ]
-  }
-
-  if (command === 'figlet') {
-    const text = args.join(' ').toUpperCase() || 'HI'
-    if (text.length > 8) {
-      return [{ type: 'error', text: 'figlet: text too long (max 8 chars)' }]
+  // Special case: cat (with special args, when first arg is not README.md)
+  if (command === 'cat' && args[0] !== 'README.md') {
+    if (args[0] === '/dev/urandom') {
+      let out = ''
+      const chars = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`abcdefABCDEF0123456789'
+      for (let i = 0; i < 160; i++) out += chars[Math.floor(Math.random() * chars.length)]
+      return [
+        { type: 'output', text: out.slice(0, 40) },
+        { type: 'output', text: out.slice(40, 80) },
+        { type: 'output', text: out.slice(80, 120) },
+        { type: 'output', text: out.slice(120) },
+        { type: 'output', text: '' },
+        { type: 'output', text: '^C  (you probably wanted that)' },
+      ]
     }
-    const font: Record<string, string[]> = {
-      'H': ['\u2588  \u2588', '\u2588\u2588\u2588\u2588', '\u2588  \u2588', '\u2588  \u2588'],
-      'I': ['\u2588\u2588\u2588', ' \u2588 ', ' \u2588 ', '\u2588\u2588\u2588'],
-      'G': [' \u2588\u2588\u2588', '\u2588   ', '\u2588 \u2588\u2588', ' \u2588\u2588\u2588'],
-      'A': [' \u2588\u2588 ', '\u2588  \u2588', '\u2588\u2588\u2588\u2588', '\u2588  \u2588'],
-      'B': ['\u2588\u2588\u2588 ', '\u2588  \u2588', '\u2588\u2588\u2588 ', '\u2588\u2588\u2588 '],
-      'C': [' \u2588\u2588\u2588', '\u2588   ', '\u2588   ', ' \u2588\u2588\u2588'],
-      'D': ['\u2588\u2588\u2588 ', '\u2588  \u2588', '\u2588  \u2588', '\u2588\u2588\u2588 '],
-      'E': ['\u2588\u2588\u2588\u2588', '\u2588\u2588  ', '\u2588   ', '\u2588\u2588\u2588\u2588'],
-      'F': ['\u2588\u2588\u2588\u2588', '\u2588\u2588  ', '\u2588   ', '\u2588   '],
-      ' ': ['    ', '    ', '    ', '    '],
+    if (args[0]) {
+      return [{ type: 'error', text: `cat: ${args[0]}: Permission denied` }]
     }
-    const rows = ['', '', '', '']
-    for (const ch of text) {
-      const glyph = font[ch] || font[' ']!
-      for (let r = 0; r < 4; r++) rows[r] += (glyph[r] ?? '    ') + ' '
-    }
-    return rows.map(r => ({ type: 'output' as const, text: r }))
+    return [{ type: 'output', text: 'Usage: cat <file>' }]
   }
 
-  if (command === 'apt' || command === 'pip') {
-    return [
-      { type: 'output', text: `${command}: command not found` },
-      { type: 'output', text: 'This is a browser, not a server.' },
-      { type: 'output', text: 'Try: brew' },
-    ]
-  }
+  // Prefix commands (:q, :wq, :q!)
+  const prefixHandler = PREFIX_COMMANDS[command]
+  if (prefixHandler) return prefixHandler(args, input)
 
-  if (command === 'wget') {
-    const url = args[0] || 'https://example.com'
-    return [
-      { type: 'output', text: `--2026-03-11 15:42:00--  ${url}` },
-      { type: 'output', text: 'Resolving... failed.' },
-      { type: 'output', text: '' },
-      { type: 'output', text: 'You can\'t download the internet from a portfolio.' },
-    ]
-  }
-
-  if (command === 'chmod') {
-    return [
-      { type: 'output', text: 'chmod: changing permissions of \'everything\': Nice try.' },
-      { type: 'output', text: 'You\'re a guest. Guests get read access.' },
-    ]
-  }
-
-  if (command === 'whois') {
-    return [
-      { type: 'output', text: 'Domain: miserabletaco.dev' },
-      { type: 'output', text: 'Registrant: G' },
-      { type: 'output', text: 'Location: Singapore' },
-      { type: 'output', text: 'Status: Building' },
-      { type: 'output', text: 'Stack: React + Three.js + Zustand' },
-      { type: 'output', text: 'Philosophy: Ship fast, care about taste' },
-      { type: 'output', text: 'Coffee: Essential' },
-    ]
-  }
-
-  if (command === 'lolcat') {
-    const text = args.join(' ') || 'meow'
-    return [
-      { type: 'output', text: 'lolcat: ANSI colors not supported in this terminal.' },
-      { type: 'output', text: `But here's your text anyway: ${text}` },
-      { type: 'output', text: '(Try "disco" for actual colors)' },
-    ]
-  }
-
-  if (command === 'disco') {
-    useObjectStore.getState().activateDisco()
-    return [
-      { type: 'output', text: '> DISCO MODE ACTIVATED' },
-      { type: 'output', text: '  \u266A Now playing: Tropical Pluck \u266A' },
-      { type: 'output', text: '  Type "stop" to end early' },
-    ]
-  }
-
-  if (command === 'stop') {
-    if (useObjectStore.getState().discoActive) {
-      useObjectStore.getState().deactivateDisco()
-      return [{ type: 'output', text: '> Disco stopped.' }]
-    }
-    return [{ type: 'output', text: 'Nothing to stop.' }]
-  }
+  // Main map lookup
+  const handler = EASTER_EGGS[command]
+  if (handler) return handler(args, input)
 
   // Not an easter egg
   return null

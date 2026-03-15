@@ -182,6 +182,7 @@ function processCommand(input: string): TerminalLine[] {
     ]
   }
 
+  // args are derived from sanitized input (sanitizeInput strips HTML, trims, caps at 100 chars)
   if (command === 'echo') {
     return [{ type: 'output', text: args.join(' ') }]
   }

@@ -54,90 +54,43 @@ export function MobileFallback() {
   }
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100dvh',
-      background: '#000',
-      color: '#00ff00',
-      fontFamily: '"Courier New", monospace',
-      fontSize: '13px',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '16px',
-        borderBottom: '1px solid #333',
-        flexShrink: 0,
-      }}>
+    <div className="mobile-root">
+      <div className="mobile-header">
         <div style={{ fontSize: '15px', fontWeight: 'bold' }}>miserabletaco.dev</div>
         <div style={{ opacity: 0.5, marginTop: 4, fontSize: '11px' }}>
           Desktop experience available on larger screens
         </div>
       </div>
 
-      {/* Links */}
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #333',
-        flexShrink: 0,
-      }}>
+      <div className="mobile-links">
         {LINKS.map((link, i) => (
           <a
             key={i}
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{
-              display: 'block',
-              color: '#66ccff',
-              textDecoration: 'underline',
-              marginBottom: 8,
-              fontSize: '13px',
-            }}
+            className="mobile-link"
           >
             {link.label}
           </a>
         ))}
       </div>
 
-      {/* Terminal output */}
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '12px 16px',
-      }}>
+      <div className="mobile-output">
         {lines.map((line, i) => (
           <div key={i} style={{ minHeight: '18px' }}>{line}</div>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div style={{
-        padding: '12px 16px',
-        borderTop: '1px solid #333',
-        display: 'flex',
-        gap: 8,
-        flexShrink: 0,
-      }}>
+      <div className="mobile-input-row">
         <span>&gt;</span>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') execute() }}
-          style={{
-            flex: 1,
-            background: 'transparent',
-            border: 'none',
-            color: '#00ff00',
-            fontFamily: '"Courier New", monospace',
-            fontSize: '13px',
-            outline: 'none',
-            caretColor: '#00ff00',
-          }}
+          className="mobile-input"
           autoFocus
           autoComplete="off"
           autoCapitalize="off"

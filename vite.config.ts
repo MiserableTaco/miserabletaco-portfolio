@@ -17,9 +17,9 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ['three'],
-          react: ['react', 'react-dom'],
+        manualChunks: (id: string) => {
+          if (id.includes('node_modules/three')) return 'three'
+          if (id.includes('node_modules/react')) return 'react'
         },
       },
     },

@@ -9,7 +9,7 @@ import {
 } from '@/store/portfolioStore'
 import { playSound, initAudio } from '@/hooks/useAudio'
 import { DESKTOP_WIDTH, DESKTOP_HEIGHT, DESKTOP } from '@/utils/constants'
-import { START_MENU_ITEM_H, START_MENU_W, START_MENU_PAD } from '@/components/Desktop'
+import { START_MENU_ITEMS, START_MENU_ITEM_H, START_MENU_W, START_MENU_PAD } from '@/components/desktop/window'
 
 // Sound map for object clicks
 const OBJECT_SOUNDS: Record<string, string> = {
@@ -113,26 +113,13 @@ export function useRaycaster() {
 
     // ── Desktop click routing ──────────────────────────────────────
 
-    // Start menu app list (must match Desktop.tsx START_MENU_ITEMS order)
-    const startMenuApps = [
-      { app: 'trust', label: 'TRUST' },
-      { app: 'culture', label: 'CULTURE' },
-      { app: 'undertow', label: 'UNDERTOW' },
-      { app: 'about', label: 'About' },
-      { app: 'contact', label: 'Contact' },
-      { app: 'terminal', label: 'Terminal' },
-      { app: 'mycomputer', label: 'My PC' },
-      { app: 'notepad', label: 'Notepad' },
-      { app: 'backup', label: 'Backup' },
-    ]
-
     function handleDesktopClick(x: number, y: number) {
       const store = useDesktopStore.getState()
       const taskbarY = DESKTOP_HEIGHT - DESKTOP.taskbarHeight
 
       // Check start menu first (if open)
       if (store.startMenuOpen) {
-        const menuH = startMenuApps.length * START_MENU_ITEM_H + START_MENU_PAD * 2 + 24
+        const menuH = START_MENU_ITEMS.length * START_MENU_ITEM_H + START_MENU_PAD * 2 + 24
         const menuY = taskbarY - menuH
         const menuX = 4
 
@@ -141,8 +128,8 @@ export function useRaycaster() {
           const itemY = y - menuY - 26
           if (itemY >= 0) {
             const idx = Math.floor(itemY / START_MENU_ITEM_H)
-            if (idx >= 0 && idx < startMenuApps.length) {
-              const item = startMenuApps[idx]
+            if (idx >= 0 && idx < START_MENU_ITEMS.length) {
+              const item = START_MENU_ITEMS[idx]
               store.openWindow(item.app, item.label)
               playSound('window-open')
             }

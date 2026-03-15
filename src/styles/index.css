@@ -76,6 +76,103 @@ html, body, canvas, div, * {
   100% { opacity: 0; }
 }
 
+/* Loading screen */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-text {
+  font-family: 'Courier New', monospace;
+  font-size: 28px;
+  letter-spacing: 3px;
+  color: #e0e0e0;
+  position: relative;
+}
+
+.loading-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 28px;
+  background: #00ff00;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: loadBlink 0.6s step-end infinite;
+}
+
+.loading-sound-hint {
+  position: absolute;
+  bottom: 60px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #555;
+  letter-spacing: 2px;
+  animation: loadFadeIn 0.4s ease-out;
+}
+
+/* Mobile fallback */
+.mobile-root {
+  width: 100vw;
+  height: 100dvh;
+  background: #000;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-header {
+  padding: 16px;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.mobile-links {
+  padding: 12px 16px;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.mobile-link {
+  display: block;
+  color: #66ccff;
+  text-decoration: underline;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.mobile-output {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px;
+}
+
+.mobile-input-row {
+  padding: 12px 16px;
+  border-top: 1px solid #333;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mobile-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  outline: none;
+  caret-color: #00ff00;
+}
+
 /* Reduced motion: disable camera drift and animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
